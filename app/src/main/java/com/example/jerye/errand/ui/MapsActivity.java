@@ -1,16 +1,22 @@
-package com.example.jerye.errand;
+package com.example.jerye.errand.ui;
 
+import android.content.Context;
+import android.location.LocationManager;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.FragmentActivity;
-import android.widget.Toast;
+import android.support.v7.widget.RecyclerView;
 
+import com.example.jerye.errand.R;
+import com.example.jerye.errand.component.DaggerErrandComponent;
+import com.example.jerye.errand.component.ErrandComponent;
+import com.example.jerye.errand.data.model.MapDirectionResponse;
+import com.example.jerye.errand.data.remote.MapDirectionService;
+import com.example.jerye.errand.module.NetworkModule;
+import com.example.jerye.errand.module.ViewModule;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListener;
-import com.google.android.gms.common.api.Status;
-import com.google.android.gms.location.places.Place;
-import com.google.android.gms.location.places.Places;
 import com.google.android.gms.location.places.ui.PlaceAutocompleteFragment;
 import com.google.android.gms.location.places.ui.PlaceSelectionListener;
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -20,23 +26,46 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 
+import javax.inject.Inject;
+
+import butterknife.BindView;
+import butterknife.ButterKnife;
+import rx.Subscriber;
+import rx.android.schedulers.AndroidSchedulers;
+import rx.schedulers.Schedulers;
+
+
+
+
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, OnConnectionFailedListener {
-    private GoogleApiClient mGoogleApiClient;
     private GoogleMap mMap;
+    @BindView(R.id.left_drawer)
+    RecyclerView drawer;
+
+
+    @Inject
+    GoogleApiClient mGoogleApiClient;
+    @Inject
+    MapDirectionService mMapDirectionService;
+    @Inject
+    Subscriber<MapDirectionResponse> mSubscriber;
+    @Inject
+    PlaceSelectionListener mPlaceSelectionListener;
+    @Inject
+    ErrandAdapter mErrandAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
 
-        mGoogleApiClient = new GoogleApiClient
-                .Builder(this)
-                .addApi(Places.GEO_DATA_API)
-                .addApi(Places.PLACE_DETECTION_API)
-                .enableAutoManage(this, this)
+        ButterKnife.bind(this);
+
+        ErrandComponent errandComponent = DaggerErrandComponent.builder()
+                .viewModule(new ViewModule(this))
+                .networkModule(new NetworkModule(this, this, this))
                 .build();
-
-
+        errandComponent.inject(this);
 
 
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
@@ -45,20 +74,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mapFragment.getMapAsync(this);
 
         PlaceAutocompleteFragment autocompleteFragment = (PlaceAutocompleteFragment) getFragmentManager().findFragmentById(R.id.place_autocomplete_fragment);
-        autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
-            @Override
-            public void onPlaceSelected(Place place) {
+        autocompleteFragment.setOnPlaceSelectedListener(mPlaceSelectionListener);
 
-                Toast.makeText(MapsActivity.this, place.toString(), Toast.LENGTH_SHORT).show();
-            }
+        mMapDirectionService.getDirection(getString(R.string.google_maps_key))
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(mSubscriber);
 
-            @Override
-            public void onError(Status status) {
 
-                Toast.makeText(MapsActivity.this, status.toString(), Toast.LENGTH_SHORT).show();
-
-            }
-        });
     }
 
     @Override
@@ -83,12 +106,20 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         LatLng sydney = new LatLng(-34, 151);
         mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
         mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
+
+        LocationManager mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+
+
     }
+
 
     @Override
     protected void onStart() {
         super.onStart();
         mGoogleApiClient.connect();
+        drawer.setAdapter(mErrandAdapter);
+
+
     }
 
     @Override
