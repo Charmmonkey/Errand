@@ -1,5 +1,6 @@
 package com.example.jerye.errand.component;
 
+import com.example.jerye.errand.module.MapModule;
 import com.example.jerye.errand.module.NetworkModule;
 import com.example.jerye.errand.module.ViewModule;
 import com.example.jerye.errand.ui.MapsActivity;
@@ -13,7 +14,7 @@ import dagger.Component;
  */
 
 @Singleton
-@Component(modules = {ViewModule.class, NetworkModule.class})
+@Component(modules = {ViewModule.class, NetworkModule.class, MapModule.class})
 public interface ErrandComponent {
     void inject(MapsActivity mapsActivity);
 

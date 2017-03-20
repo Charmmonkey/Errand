@@ -1,44 +1,61 @@
 package com.example.jerye.errand.ui;
 
-import android.content.Context;
-import android.location.LocationManager;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.FragmentActivity;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 
 import com.example.jerye.errand.R;
 import com.example.jerye.errand.component.DaggerErrandComponent;
 import com.example.jerye.errand.component.ErrandComponent;
+import com.example.jerye.errand.data.model.Leg;
 import com.example.jerye.errand.data.model.MapDirectionResponse;
+import com.example.jerye.errand.data.model.Polyline;
+import com.example.jerye.errand.data.model.Route;
+import com.example.jerye.errand.data.model.Step;
 import com.example.jerye.errand.data.remote.MapDirectionService;
+import com.example.jerye.errand.module.MapModule;
 import com.example.jerye.errand.module.NetworkModule;
 import com.example.jerye.errand.module.ViewModule;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListener;
+import com.google.android.gms.common.api.Status;
+import com.google.android.gms.location.places.Place;
 import com.google.android.gms.location.places.ui.PlaceAutocompleteFragment;
 import com.google.android.gms.location.places.ui.PlaceSelectionListener;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.JointType;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.PolylineOptions;
+import com.google.android.gms.maps.model.RoundCap;
+
+import java.util.List;
 
 import javax.inject.Inject;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
+import rx.Observable;
 import rx.Subscriber;
+import rx.Subscription;
 import rx.android.schedulers.AndroidSchedulers;
+import rx.functions.Func1;
 import rx.schedulers.Schedulers;
-
-
 
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, OnConnectionFailedListener {
     private GoogleMap mMap;
+    private Subscription subscription;
+    private String selectedName;
+    private LatLng selectedLatLng;
+    private LatLngBounds selectedLatLngBounds;
     @BindView(R.id.left_drawer)
     RecyclerView drawer;
 
@@ -48,11 +65,20 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Inject
     MapDirectionService mMapDirectionService;
     @Inject
-    Subscriber<MapDirectionResponse> mSubscriber;
-    @Inject
-    PlaceSelectionListener mPlaceSelectionListener;
-    @Inject
     ErrandAdapter mErrandAdapter;
+    @Inject
+    Func1<MapDirectionResponse, Observable<Route>> mMapDirectionResponse2Route;
+    @Inject
+    Func1<Route, Observable<Leg>> mRoute2Leg;
+    @Inject
+    Func1<Leg, Observable<Step>> mLeg2Step;
+    @Inject
+    Func1<Step, Polyline> mStep2Polyline;
+    @Inject
+    Func1<Polyline, String> mPolyline2String;
+    @Inject
+    Func1<String, List<LatLng>> mString2LatLng;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,6 +90,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         ErrandComponent errandComponent = DaggerErrandComponent.builder()
                 .viewModule(new ViewModule(this))
                 .networkModule(new NetworkModule(this, this, this))
+                .mapModule(new MapModule())
                 .build();
         errandComponent.inject(this);
 
@@ -74,19 +101,62 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mapFragment.getMapAsync(this);
 
         PlaceAutocompleteFragment autocompleteFragment = (PlaceAutocompleteFragment) getFragmentManager().findFragmentById(R.id.place_autocomplete_fragment);
-        autocompleteFragment.setOnPlaceSelectedListener(mPlaceSelectionListener);
+        autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
+            @Override
+            public void onPlaceSelected(Place place) {
+                selectedName = (String) place.getName();
+                selectedLatLng = place.getLatLng();
+                selectedLatLngBounds = place.getViewport();
+                updateMapCamera(selectedName,selectedLatLng,selectedLatLngBounds);
 
-        mMapDirectionService.getDirection(getString(R.string.google_maps_key))
+            }
+
+            @Override
+            public void onError(Status status) {
+                Log.e("ViewModule", status.toString());
+            }
+        });
+
+        SupportMapFragment supportMapFragment = (SupportMapFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.map);
+
+        subscription = mMapDirectionService.getDirection(getString(R.string.google_maps_key))
+                .flatMap(mMapDirectionResponse2Route)
+                .flatMap(mRoute2Leg)
+                .flatMap(mLeg2Step)
+                .map(mStep2Polyline)
+                .map(mPolyline2String)
+                .map(mString2LatLng)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(mSubscriber);
+                .subscribe(new Subscriber<List<LatLng>>() {
+                    @Override
+                    public void onCompleted() {
+                    }
+
+                    @Override
+                    public void onError(Throwable throwable) {
+                    }
+
+                    @Override
+                    public void onNext(List<LatLng> latLng) {
+                        Log.d("MapsActivity", latLng.toString());
+                        PolylineOptions polylineOptions = new PolylineOptions().
+                                jointType(JointType.ROUND).
+                                endCap(new RoundCap()).
+                                startCap(new RoundCap()).
+                                width(20).
+                                addAll(latLng);
+                        mMap.addPolyline(polylineOptions);
+                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng.get(0), 15));
+                    }
+                });
 
 
     }
 
     @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-
     }
 
     /**
@@ -101,14 +171,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
+        Log.d("MapsActivity", mMap.toString());
 
         // Add a marker in Sydney and move the camera
-        LatLng sydney = new LatLng(-34, 151);
-        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
-
-        LocationManager mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-
+//        LatLng sydney = new LatLng(40.74288000000001,-74.00585000000001);
+//        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
+//        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
 
     }
 
@@ -126,5 +194,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     protected void onStop() {
         super.onStop();
         mGoogleApiClient.disconnect();
+        subscription.unsubscribe();
+
+    }
+
+    private void updateMapCamera(String name, LatLng latLng, LatLngBounds latLngBounds) {
+        mMap.addMarker(new MarkerOptions().position(latLng).title(name));
+        mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(latLngBounds, 0));
+
     }
 }

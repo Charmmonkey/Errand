@@ -4,9 +4,6 @@ import android.content.Context;
 
 import com.example.jerye.errand.classes.ErrandPreferences;
 import com.example.jerye.errand.ui.ErrandAdapter;
-import com.google.android.gms.common.api.Status;
-import com.google.android.gms.location.places.Place;
-import com.google.android.gms.location.places.ui.PlaceSelectionListener;
 
 import javax.inject.Singleton;
 
@@ -20,24 +17,13 @@ import dagger.Provides;
 @Module
 public class ViewModule {
     private Context mContext;
+    private String destionation;
+    private String origin;
+
+
 
     public ViewModule(Context context) {
         mContext = context;
-    }
-
-    @Provides
-    @Singleton
-    PlaceSelectionListener providePlaceSelectionListener() {
-        return new PlaceSelectionListener() {
-            @Override
-            public void onPlaceSelected(Place place) {
-
-
-            }
-
-            @Override
-            public void onError(Status status) {            }
-        };
     }
 
 

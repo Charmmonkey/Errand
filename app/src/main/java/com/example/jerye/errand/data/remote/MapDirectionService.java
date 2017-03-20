@@ -12,7 +12,7 @@ import rx.Observable;
 
 public interface MapDirectionService {
 
-    @GET("json?origin=75+9th+Ave+New+York,+NY&destination=MetLife+Stadium+1+MetLife+Stadium+Dr+East+Rutherford,+NJ+07073")
+    @GET("json?origin=Boston,MA&destination=Concord,MA&waypoints=Charlestown,MA|Lexington,MA")
     Observable<MapDirectionResponse> getDirection(@Query("key") String key);
 
 }

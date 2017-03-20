@@ -26,7 +26,8 @@
             android:name="com.google.android.gms.maps.SupportMapFragment"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            tools:context="com.example.jerye.errand.ui.MapsActivity" />
+            tools:context="com.example.jerye.errand.ui.MapsActivity"
+            />
     </RelativeLayout>
 
     <android.support.v7.widget.RecyclerView android:id="@+id/left_drawer"
