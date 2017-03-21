@@ -29,17 +29,11 @@ public class MapModule {
 
     private GoogleMap mGoogleMap;
 
-
     public MapModule() {
 
     }
 
-//    @Provides
-//    @Singleton
-//    Subscriber<List<LatLng>> provideSubscriber() {
-//        return
-//        };
-//    }
+
 
     @Provides
     @Singleton

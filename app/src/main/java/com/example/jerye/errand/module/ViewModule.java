@@ -3,7 +3,7 @@ package com.example.jerye.errand.module;
 import android.content.Context;
 
 import com.example.jerye.errand.classes.ErrandPreferences;
-import com.example.jerye.errand.ui.ErrandAdapter;
+import com.example.jerye.errand.data.ErrandAdapter;
 
 import javax.inject.Singleton;
 
@@ -25,6 +25,8 @@ public class ViewModule {
     public ViewModule(Context context) {
         mContext = context;
     }
+
+
 
 
     @Provides

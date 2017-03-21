@@ -12,7 +12,8 @@ import rx.Observable;
 
 public interface MapDirectionService {
 
-    @GET("json?origin=Boston,MA&destination=Concord,MA&waypoints=Charlestown,MA|Lexington,MA")
-    Observable<MapDirectionResponse> getDirection(@Query("key") String key);
+    @GET("json?origin=Boston,MA")
+    Observable<MapDirectionResponse> getDirection(@Query("destination") String destination, @Query("key") String key);
+
 
 }

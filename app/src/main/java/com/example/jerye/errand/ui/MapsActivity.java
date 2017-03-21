@@ -3,12 +3,14 @@ package com.example.jerye.errand.ui;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.FragmentActivity;
+import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 
 import com.example.jerye.errand.R;
 import com.example.jerye.errand.component.DaggerErrandComponent;
 import com.example.jerye.errand.component.ErrandComponent;
+import com.example.jerye.errand.data.ErrandAdapter;
 import com.example.jerye.errand.data.model.Leg;
 import com.example.jerye.errand.data.model.MapDirectionResponse;
 import com.example.jerye.errand.data.model.Polyline;
@@ -36,6 +38,7 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.maps.model.RoundCap;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.inject.Inject;
@@ -56,9 +59,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private String selectedName;
     private LatLng selectedLatLng;
     private LatLngBounds selectedLatLngBounds;
+    private List<String> destinationList = new ArrayList<>();
+    private String destination = "Concord,CA";
+
+
     @BindView(R.id.left_drawer)
     RecyclerView drawer;
-
 
     @Inject
     GoogleApiClient mGoogleApiClient;
@@ -95,19 +101,24 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         errandComponent.inject(this);
 
 
-        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
+//         Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
-        PlaceAutocompleteFragment autocompleteFragment = (PlaceAutocompleteFragment) getFragmentManager().findFragmentById(R.id.place_autocomplete_fragment);
+        final PlaceAutocompleteFragment autocompleteFragment = (PlaceAutocompleteFragment) getFragmentManager().findFragmentById(R.id.place_autocomplete_fragment);
         autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override
             public void onPlaceSelected(Place place) {
                 selectedName = (String) place.getName();
                 selectedLatLng = place.getLatLng();
                 selectedLatLngBounds = place.getViewport();
-                updateMapCamera(selectedName,selectedLatLng,selectedLatLngBounds);
+                updateMapCamera(selectedName, selectedLatLng, selectedLatLngBounds);
+                destinationList.add(selectedName);
+                mErrandAdapter.refreshList(destinationList);
+                getRoute(selectedName);
+
+                
 
             }
 
@@ -116,41 +127,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 Log.e("ViewModule", status.toString());
             }
         });
-
-        SupportMapFragment supportMapFragment = (SupportMapFragment) getSupportFragmentManager()
-                .findFragmentById(R.id.map);
-
-        subscription = mMapDirectionService.getDirection(getString(R.string.google_maps_key))
-                .flatMap(mMapDirectionResponse2Route)
-                .flatMap(mRoute2Leg)
-                .flatMap(mLeg2Step)
-                .map(mStep2Polyline)
-                .map(mPolyline2String)
-                .map(mString2LatLng)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Subscriber<List<LatLng>>() {
-                    @Override
-                    public void onCompleted() {
-                    }
-
-                    @Override
-                    public void onError(Throwable throwable) {
-                    }
-
-                    @Override
-                    public void onNext(List<LatLng> latLng) {
-                        Log.d("MapsActivity", latLng.toString());
-                        PolylineOptions polylineOptions = new PolylineOptions().
-                                jointType(JointType.ROUND).
-                                endCap(new RoundCap()).
-                                startCap(new RoundCap()).
-                                width(20).
-                                addAll(latLng);
-                        mMap.addPolyline(polylineOptions);
-                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng.get(0), 15));
-                    }
-                });
+        getRoute(destination);
 
 
     }
@@ -173,10 +150,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap = googleMap;
         Log.d("MapsActivity", mMap.toString());
 
-        // Add a marker in Sydney and move the camera
-//        LatLng sydney = new LatLng(40.74288000000001,-74.00585000000001);
-//        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
-//        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
+//         Add a marker in Sydney and move the camera
+        LatLng sydney = new LatLng(40.74288000000001,-74.00585000000001);
+        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
+        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
 
     }
 
@@ -185,16 +162,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     protected void onStart() {
         super.onStart();
         mGoogleApiClient.connect();
+        RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(this, LinearLayoutManager.VERTICAL,false);
+        drawer.setLayoutManager(layoutManager);
         drawer.setAdapter(mErrandAdapter);
-
-
     }
 
     @Override
     protected void onStop() {
         super.onStop();
         mGoogleApiClient.disconnect();
-        subscription.unsubscribe();
 
     }
 
@@ -202,5 +178,38 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.addMarker(new MarkerOptions().position(latLng).title(name));
         mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(latLngBounds, 0));
 
+    }
+
+    private void getRoute(String destination){
+        mMapDirectionService.getDirection(destination, getString(R.string.google_maps_key))
+                .flatMap(mMapDirectionResponse2Route)
+                .flatMap(mRoute2Leg)
+                .flatMap(mLeg2Step)
+                .map(mStep2Polyline)
+                .map(mPolyline2String)
+                .map(mString2LatLng)
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Subscriber<List<LatLng>>() {
+                    @Override
+                    public void onCompleted() {
+                    }
+
+                    @Override
+                    public void onError(Throwable throwable) {
+                    }
+
+                    @Override
+                    public void onNext(List<LatLng> latLng) {
+                        PolylineOptions polylineOptions = new PolylineOptions().
+                                jointType(JointType.ROUND).
+                                endCap(new RoundCap()).
+                                startCap(new RoundCap()).
+                                width(20).
+                                addAll(latLng);
+                        mMap.addPolyline(polylineOptions);
+                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng.get(0), 15));
+                    }
+                });
     }
 }
