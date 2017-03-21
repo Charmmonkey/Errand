@@ -1,9 +1,8 @@
 package com.example.jerye.errand.module;
 
-import android.content.Context;
-
 import com.example.jerye.errand.classes.ErrandPreferences;
 import com.example.jerye.errand.data.ErrandAdapter;
+import com.example.jerye.errand.ui.MapsActivity;
 
 import javax.inject.Singleton;
 
@@ -16,28 +15,22 @@ import dagger.Provides;
 
 @Module
 public class ViewModule {
-    private Context mContext;
-    private String destionation;
-    private String origin;
+    private MapsActivity mapsActivity;
 
-
-
-    public ViewModule(Context context) {
-        mContext = context;
+    public ViewModule(MapsActivity activity) {
+        mapsActivity = activity;
     }
-
-
-
 
     @Provides
     @Singleton
     ErrandPreferences provideSharedPreferences() {
-        return new ErrandPreferences(mContext);
+        return new ErrandPreferences(mapsActivity);
     }
 
     @Provides
     @Singleton
     ErrandAdapter provideErrandAdapter() {
-        return new ErrandAdapter(mContext);
+        return new ErrandAdapter(mapsActivity, mapsActivity);
     }
+
 }

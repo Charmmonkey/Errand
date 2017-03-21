@@ -53,7 +53,9 @@ import rx.functions.Func1;
 import rx.schedulers.Schedulers;
 
 
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, OnConnectionFailedListener {
+public class MapsActivity extends FragmentActivity implements OnMapReadyCallback,
+        OnConnectionFailedListener,
+        ErrandAdapter.ErrandAdapterClickHandler {
     private GoogleMap mMap;
     private Subscription subscription;
     private String selectedName;
@@ -87,6 +89,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
 
     @Override
+    public void onClick(int position) {
+        // Access cursor . position get 3 items;
+        Log.d("MapsActivity", "Click event");
+//        updateMapCamera();
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
@@ -118,7 +127,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 mErrandAdapter.refreshList(destinationList);
                 getRoute(selectedName);
 
-                
 
             }
 
@@ -150,10 +158,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap = googleMap;
         Log.d("MapsActivity", mMap.toString());
 
+//        LocationManager locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
+//        LocationProvider location = locationManager.getProvider(LocationManager.GPS_PROVIDER);
+//        Log.d("MapsActivity", location.toString()+"");
+
 //         Add a marker in Sydney and move the camera
-        LatLng sydney = new LatLng(40.74288000000001,-74.00585000000001);
-        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
 
     }
 
@@ -162,7 +171,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     protected void onStart() {
         super.onStart();
         mGoogleApiClient.connect();
-        RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(this, LinearLayoutManager.VERTICAL,false);
+        RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false);
         drawer.setLayoutManager(layoutManager);
         drawer.setAdapter(mErrandAdapter);
     }
@@ -180,7 +189,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     }
 
-    private void getRoute(String destination){
+    private void getRoute(String destination) {
         mMapDirectionService.getDirection(destination, getString(R.string.google_maps_key))
                 .flatMap(mMapDirectionResponse2Route)
                 .flatMap(mRoute2Leg)

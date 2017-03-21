@@ -19,12 +19,14 @@ import butterknife.ButterKnife;
  * Created by jerye on 3/20/2017.
  */
 
-public class ErrandAdapter extends RecyclerView.Adapter<ErrandAdapter.ErrandViewHolder>{
+public class ErrandAdapter extends RecyclerView.Adapter<ErrandAdapter.ErrandViewHolder> {
     List<String> destinationList;
+    private ErrandAdapterClickHandler mErrandAdapterClickHandler;
     private Context mContext;
 
-    public ErrandAdapter(Context context){
+    public ErrandAdapter(Context context, ErrandAdapterClickHandler clickHandler) {
         mContext = context;
+        mErrandAdapterClickHandler = clickHandler;
     }
 
 
@@ -32,7 +34,7 @@ public class ErrandAdapter extends RecyclerView.Adapter<ErrandAdapter.ErrandView
     public ErrandViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
         Log.d("ErrandAdapter", "create");
 
-        View itemView = LayoutInflater.from(mContext).inflate(R.layout.drawer_item, parent, false );
+        View itemView = LayoutInflater.from(mContext).inflate(R.layout.drawer_item, parent, false);
         return new ErrandViewHolder(itemView);
     }
 
@@ -43,7 +45,7 @@ public class ErrandAdapter extends RecyclerView.Adapter<ErrandAdapter.ErrandView
     }
 
 
-    public void refreshList(List<String> stringList){
+    public void refreshList(List<String> stringList) {
         destinationList = stringList;
         notifyDataSetChanged();
     }
@@ -51,20 +53,29 @@ public class ErrandAdapter extends RecyclerView.Adapter<ErrandAdapter.ErrandView
     @Override
     public int getItemCount() {
         int count = 0;
-        if(destinationList != null){
+        if (destinationList != null) {
             count = destinationList.size();
         }
         return count;
     }
 
-    public class ErrandViewHolder extends RecyclerView.ViewHolder{
+    public class ErrandViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
         @BindView(R.id.drawer_item)
         TextView textView;
 
-        ErrandViewHolder(View itemView){
+        ErrandViewHolder(View itemView) {
             super(itemView);
             ButterKnife.bind(this, itemView);
-
+            textView.setOnClickListener(this);
         }
-     }
+
+        @Override
+        public void onClick(View v) {
+            mErrandAdapterClickHandler.onClick(getAdapterPosition());
+        }
+    }
+
+    public interface ErrandAdapterClickHandler {
+        void onClick(int position);
+    }
 }
