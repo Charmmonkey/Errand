@@ -103,8 +103,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         // Access cursor . position get 3 items;
         Log.d("MapsActivity", "Click event");
 //        updateMapCamera();
-        addMarkerAndMoveCamera(position);
-
+        moveCamera(position);
 
     }
 
@@ -144,12 +143,21 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 selectedId = place.getId();
                 selectedLatLng = place.getLatLng();
                 selectedType = place.getPlaceTypes().toString();
+                Log.d(TAG,selectedLatLng.toString());
+                addMarker(selectedLatLng, selectedName);
+                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(selectedLatLng, 10));
+                Log.d(TAG,"Selected latlng to string: " + selectedLatLng.toString());
 
                 ContentValues locationCV = new ContentValues();
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_ID, selectedId);
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_NAME, selectedName);
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_LAT, selectedLatLng.latitude);
+                Log.d(TAG,"Selected lat to string: " + selectedLatLng.latitude + "");
+
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_LNG, selectedLatLng.longitude);
+                Log.d(TAG,"Selected lng to string: " + selectedLatLng.longitude + "");
+
+
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_TYPE, selectedType);
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_ERRAND_ID, 1);
                 Log.d(TAG, locationCV.toString());
@@ -226,17 +234,18 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         errandSubscription.unsubscribe();
         locationSubscription.unsubscribe();
 
-
     }
 
-    private void addMarkerAndMoveCamera(int position) {
+    private void addMarker(LatLng latLng, String name) {
+        mMap.addMarker(new MarkerOptions().position(latLng).title(name));
+    }
+
+    private void moveCamera(int position) {
         locationCursor.moveToPosition(position);
         LatLng latLng = new LatLng(
-                locationCursor.getLong(ErrandDBHelper.COLUMN_ID_LOCATION_LAT),
-                locationCursor.getLong(ErrandDBHelper.COLUMN_ID_LOCATION_LNG));
-        String name = locationCursor.getString(ErrandDBHelper.COLUMN_ID_LOCATION_NAME);
-        mMap.addMarker(new MarkerOptions().position(latLng).title(name));
-        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 2));
+                locationCursor.getDouble(ErrandDBHelper.COLUMN_ID_LOCATION_LAT),
+                locationCursor.getDouble(ErrandDBHelper.COLUMN_ID_LOCATION_LNG));
+        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 10));
     }
 
     private void getRoute(String destination) {
@@ -285,7 +294,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }).observeOn(AndroidSchedulers.mainThread()).subscribe(new Action1<Cursor>() {
             @Override
             public void call(Cursor cursor) {
-                mErrandAdapter.refreshList(cursor);
+                locationCursor = cursor;
+                mErrandAdapter.refreshList(locationCursor);
             }
         });
     }
