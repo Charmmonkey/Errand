@@ -1,5 +1,7 @@
 package com.example.jerye.errand.ui;
 
+import android.content.ContentValues;
+import android.database.Cursor;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.FragmentActivity;
@@ -11,6 +13,7 @@ import com.example.jerye.errand.R;
 import com.example.jerye.errand.component.DaggerErrandComponent;
 import com.example.jerye.errand.component.ErrandComponent;
 import com.example.jerye.errand.data.ErrandAdapter;
+import com.example.jerye.errand.data.ErrandDBHelper;
 import com.example.jerye.errand.data.model.Leg;
 import com.example.jerye.errand.data.model.MapDirectionResponse;
 import com.example.jerye.errand.data.model.Polyline;
@@ -20,6 +23,8 @@ import com.example.jerye.errand.data.remote.MapDirectionService;
 import com.example.jerye.errand.module.MapModule;
 import com.example.jerye.errand.module.NetworkModule;
 import com.example.jerye.errand.module.ViewModule;
+import com.example.jerye.errand.utility.Utility;
+import com.facebook.stetho.Stetho;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListener;
@@ -37,8 +42,9 @@ import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.maps.model.RoundCap;
+import com.squareup.sqlbrite.BriteDatabase;
+import com.squareup.sqlbrite.SqlBrite;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import javax.inject.Inject;
@@ -49,6 +55,7 @@ import rx.Observable;
 import rx.Subscriber;
 import rx.Subscription;
 import rx.android.schedulers.AndroidSchedulers;
+import rx.functions.Action1;
 import rx.functions.Func1;
 import rx.schedulers.Schedulers;
 
@@ -56,14 +63,18 @@ import rx.schedulers.Schedulers;
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback,
         OnConnectionFailedListener,
         ErrandAdapter.ErrandAdapterClickHandler {
-    private GoogleMap mMap;
-    private Subscription subscription;
+    private static GoogleMap mMap;
     private String selectedName;
+    private String selectedId;
     private LatLng selectedLatLng;
     private LatLngBounds selectedLatLngBounds;
-    private List<String> destinationList = new ArrayList<>();
-    private String destination = "Concord,CA";
-
+    private String selectedType;
+    private static Cursor locationCursor;
+    private static Cursor errandCursor;
+    private BriteDatabase db;
+    private String TAG = "MapsActivity";
+    private Subscription errandSubscription;
+    private Subscription locationSubscription;
 
     @BindView(R.id.left_drawer)
     RecyclerView drawer;
@@ -93,12 +104,21 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         // Access cursor . position get 3 items;
         Log.d("MapsActivity", "Click event");
 //        updateMapCamera();
+
+        locationCursor.moveToPosition(position);
+//        List<LatLngBounds> latLngs= (List<LatLngBounds>) PolyUtil.decode(locationCursor.getString(ErrandDBHelper.COLUMN_ID_LOCATION_LATLNG_BOUND));
+        locationCursor.getString(ErrandDBHelper.COLUMN_ID_LOCATION_LATLNG_BOUND);
+//        mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(latLngBounds, 0));
+
+
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
+
+        Stetho.initializeWithDefaults(this);
 
         ButterKnife.bind(this);
 
@@ -109,24 +129,40 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .build();
         errandComponent.inject(this);
 
+        // SQLBrite
+        ErrandDBHelper errandDBHelper = new ErrandDBHelper(this);
+        SqlBrite sqlBrite = new SqlBrite.Builder().build();
+        db = sqlBrite.wrapDatabaseHelper(errandDBHelper, Schedulers.io());
 
-//         Obtain the SupportMapFragment and get notified when the map is ready to be used.
+        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
+
 
         final PlaceAutocompleteFragment autocompleteFragment = (PlaceAutocompleteFragment) getFragmentManager().findFragmentById(R.id.place_autocomplete_fragment);
         autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override
             public void onPlaceSelected(Place place) {
+
                 selectedName = (String) place.getName();
+                selectedId = place.getId();
                 selectedLatLng = place.getLatLng();
                 selectedLatLngBounds = place.getViewport();
-                updateMapCamera(selectedName, selectedLatLng, selectedLatLngBounds);
-                destinationList.add(selectedName);
-                mErrandAdapter.refreshList(destinationList);
-                getRoute(selectedName);
+                selectedType = place.getPlaceTypes().toString();
 
+                ContentValues locationCV = new ContentValues();
+                locationCV.put(ErrandDBHelper.COLUMN_LOCATION_ID, selectedId);
+                locationCV.put(ErrandDBHelper.COLUMN_LOCATION_NAME, selectedName);
+                locationCV.put(ErrandDBHelper.COLUMN_LOCATION_LATLNG, selectedLatLng.toString());
+                locationCV.put(ErrandDBHelper.COLUMN_LOCATION_LATLNG_BOUND, selectedLatLngBounds.toString());
+                locationCV.put(ErrandDBHelper.COLUMN_LOCATION_TYPE, selectedType);
+                locationCV.put(ErrandDBHelper.COLUMN_LOCATION_ERRAND_ID, 1);
+                Log.d(TAG, locationCV.toString());
+                db.insert(ErrandDBHelper.LOCATION_TABLE_NAME, locationCV);
+                mErrandAdapter.refreshList(locationCursor);
+                //                getRoute(selectedName);
+//                updateMapCamera(selectedName, selectedLatLng, selectedLatLngBounds);
 
             }
 
@@ -135,7 +171,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 Log.e("ViewModule", status.toString());
             }
         });
-        getRoute(destination);
 
 
     }
@@ -174,12 +209,32 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false);
         drawer.setLayoutManager(layoutManager);
         drawer.setAdapter(mErrandAdapter);
+
+
+        // Errand Query
+        Observable<SqlBrite.Query> errandQuery = db.createQuery(
+                ErrandDBHelper.ERRAND_TABLE_NAME,
+                Utility.SQL_ERRAND_QUERY,
+                Utility.getSqlErrandArg(this)
+        );
+        errandSubscription = errandQuery.subscribe(new Action1<SqlBrite.Query>() {
+            @Override
+            public void call(SqlBrite.Query query) {
+                errandCursor = query.run();
+                runLocationQuery();
+            }
+        });
+
     }
 
     @Override
     protected void onStop() {
         super.onStop();
         mGoogleApiClient.disconnect();
+
+        errandSubscription.unsubscribe();
+        locationSubscription.unsubscribe();
+
 
     }
 
@@ -220,5 +275,20 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng.get(0), 15));
                     }
                 });
+    }
+
+    private void runLocationQuery() {
+        Observable<SqlBrite.Query> locationQuery = db.createQuery(
+                ErrandDBHelper.LOCATION_TABLE_NAME,
+                Utility.SQL_LOCATION_QUERY,
+                Utility.getSqlErrandArg(this));
+        locationSubscription = locationQuery.subscribe(new Action1<SqlBrite.Query>() {
+            @Override
+            public void call(SqlBrite.Query query) {
+                locationCursor = query.run();
+                Log.d("MapsActivity", "locationQuery ran");
+                Log.d("MapsActivity", "count: " + locationCursor.getCount());
+            }
+        });
     }
 }

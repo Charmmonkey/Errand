@@ -1,6 +1,7 @@
 package com.example.jerye.errand.data;
 
 import android.content.Context;
+import android.database.Cursor;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -10,8 +11,6 @@ import android.widget.TextView;
 
 import com.example.jerye.errand.R;
 
-import java.util.List;
-
 import butterknife.BindView;
 import butterknife.ButterKnife;
 
@@ -20,7 +19,7 @@ import butterknife.ButterKnife;
  */
 
 public class ErrandAdapter extends RecyclerView.Adapter<ErrandAdapter.ErrandViewHolder> {
-    List<String> destinationList;
+    Cursor mCursor;
     private ErrandAdapterClickHandler mErrandAdapterClickHandler;
     private Context mContext;
 
@@ -40,22 +39,24 @@ public class ErrandAdapter extends RecyclerView.Adapter<ErrandAdapter.ErrandView
 
     @Override
     public void onBindViewHolder(ErrandViewHolder holder, int position) {
-        holder.textView.setText(destinationList.get(position));
+        mCursor.moveToPosition(position);
+        holder.textView.setText(mCursor.getString(ErrandDBHelper.COLUMN_ID_LOCATION_NAME));
         Log.d("ErrandAdapter", "bind");
     }
 
 
-    public void refreshList(List<String> stringList) {
-        destinationList = stringList;
+    public void refreshList(Cursor cursor) {
+        mCursor = cursor;
         notifyDataSetChanged();
     }
 
     @Override
     public int getItemCount() {
         int count = 0;
-        if (destinationList != null) {
-            count = destinationList.size();
+        if (mCursor != null) {
+            count = mCursor.getCount();
         }
+        Log.d("ErrandAdapter", count + "");
         return count;
     }
 

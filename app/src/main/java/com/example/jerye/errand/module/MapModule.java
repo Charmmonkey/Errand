@@ -6,7 +6,6 @@ import com.example.jerye.errand.data.model.Polyline;
 import com.example.jerye.errand.data.model.Route;
 import com.example.jerye.errand.data.model.Step;
 import com.example.jerye.errand.data.remote.MapDirectionService;
-import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.maps.android.PolyUtil;
 
@@ -26,14 +25,8 @@ import rx.functions.Func1;
 
 @Module
 public class MapModule {
-
-    private GoogleMap mGoogleMap;
-
     public MapModule() {
-
     }
-
-
 
     @Provides
     @Singleton
