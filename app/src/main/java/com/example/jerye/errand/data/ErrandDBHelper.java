@@ -13,12 +13,12 @@ public class ErrandDBHelper extends SQLiteOpenHelper {
     private static final String TAG = ErrandDBHelper.class.getSimpleName();
 
     private static final String DATABASE_NAME = "errand.db";
-    private static final int DATABASE_VERSION = 3;
+    private static final int DATABASE_VERSION = 4;
     public static final String LOCATION_TABLE_NAME = "location ";
     public static final String COLUMN_LOCATION_ID = "locationId";
     public static final String COLUMN_LOCATION_NAME = "locationName";
-    public static final String COLUMN_LOCATION_LATLNG = "locationLatLng";
-    public static final String COLUMN_LOCATION_LATLNG_BOUND = "locationLatLngBound";
+    public static final String COLUMN_LOCATION_LAT = "locationLat";
+    public static final String COLUMN_LOCATION_LNG = "locationLng";
     public static final String COLUMN_LOCATION_TYPE = "locationType";
     public static final String COLUMN_LOCATION_ERRAND_ID = "locationErrandId";
 
@@ -31,8 +31,8 @@ public class ErrandDBHelper extends SQLiteOpenHelper {
     public static final int COLUMN_ID_LOCATION_BASE_ID = 0;
     public static final int COLUMN_ID_LOCATION_ID = 1;
     public static final int COLUMN_ID_LOCATION_NAME = 2;
-    public static final int COLUMN_ID_LOCATION_LATLNG = 3;
-    public static final int COLUMN_ID_LOCATION_LATLNG_BOUND = 4;
+    public static final int COLUMN_ID_LOCATION_LAT = 3;
+    public static final int COLUMN_ID_LOCATION_LNG = 4;
     public static final int COLUMN_ID_LOCATION_TYPE = 5;
     public static final int COLUMN_ID_LOCATION_ERRAND_ID = 6;
 
@@ -54,8 +54,8 @@ public class ErrandDBHelper extends SQLiteOpenHelper {
                 + BaseColumns._ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
                 + COLUMN_LOCATION_ID + " TEXT NOT NULL,"
                 + COLUMN_LOCATION_NAME + " TEXT NOT NULL, "
-                + COLUMN_LOCATION_LATLNG + " TEXT NOT NULL, "
-                + COLUMN_LOCATION_LATLNG_BOUND + " REAL NOT NULL, "
+                + COLUMN_LOCATION_LAT + " REAL NOT NULL, "
+                + COLUMN_LOCATION_LNG + " REAL NOT NULL, "
                 + COLUMN_LOCATION_TYPE + " TEXT NOT NULL, "
                 + COLUMN_LOCATION_ERRAND_ID + " INTEGER NOT NULL, "
                 + "FOREIGN KEY(" + COLUMN_LOCATION_ERRAND_ID

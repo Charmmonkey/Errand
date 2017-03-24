@@ -8,6 +8,7 @@ import android.support.v4.app.FragmentActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.example.jerye.errand.R;
 import com.example.jerye.errand.component.DaggerErrandComponent;
@@ -38,7 +39,6 @@ import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.JointType;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.maps.model.RoundCap;
@@ -67,7 +67,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private String selectedName;
     private String selectedId;
     private LatLng selectedLatLng;
-    private LatLngBounds selectedLatLngBounds;
     private String selectedType;
     private static Cursor locationCursor;
     private static Cursor errandCursor;
@@ -104,11 +103,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         // Access cursor . position get 3 items;
         Log.d("MapsActivity", "Click event");
 //        updateMapCamera();
-
-        locationCursor.moveToPosition(position);
-//        List<LatLngBounds> latLngs= (List<LatLngBounds>) PolyUtil.decode(locationCursor.getString(ErrandDBHelper.COLUMN_ID_LOCATION_LATLNG_BOUND));
-        locationCursor.getString(ErrandDBHelper.COLUMN_ID_LOCATION_LATLNG_BOUND);
-//        mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(latLngBounds, 0));
+        addMarkerAndMoveCamera(position);
 
 
     }
@@ -148,22 +143,17 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 selectedName = (String) place.getName();
                 selectedId = place.getId();
                 selectedLatLng = place.getLatLng();
-                selectedLatLngBounds = place.getViewport();
                 selectedType = place.getPlaceTypes().toString();
 
                 ContentValues locationCV = new ContentValues();
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_ID, selectedId);
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_NAME, selectedName);
-                locationCV.put(ErrandDBHelper.COLUMN_LOCATION_LATLNG, selectedLatLng.toString());
-                locationCV.put(ErrandDBHelper.COLUMN_LOCATION_LATLNG_BOUND, selectedLatLngBounds.toString());
+                locationCV.put(ErrandDBHelper.COLUMN_LOCATION_LAT, selectedLatLng.latitude);
+                locationCV.put(ErrandDBHelper.COLUMN_LOCATION_LNG, selectedLatLng.longitude);
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_TYPE, selectedType);
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_ERRAND_ID, 1);
                 Log.d(TAG, locationCV.toString());
                 db.insert(ErrandDBHelper.LOCATION_TABLE_NAME, locationCV);
-                mErrandAdapter.refreshList(locationCursor);
-                //                getRoute(selectedName);
-//                updateMapCamera(selectedName, selectedLatLng, selectedLatLngBounds);
-
             }
 
             @Override
@@ -177,6 +167,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+        Toast.makeText(this, connectionResult.toString(), Toast.LENGTH_LONG).show();
     }
 
     /**
@@ -238,21 +229,25 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     }
 
-    private void updateMapCamera(String name, LatLng latLng, LatLngBounds latLngBounds) {
+    private void addMarkerAndMoveCamera(int position) {
+        locationCursor.moveToPosition(position);
+        LatLng latLng = new LatLng(
+                locationCursor.getLong(ErrandDBHelper.COLUMN_ID_LOCATION_LAT),
+                locationCursor.getLong(ErrandDBHelper.COLUMN_ID_LOCATION_LNG));
+        String name = locationCursor.getString(ErrandDBHelper.COLUMN_ID_LOCATION_NAME);
         mMap.addMarker(new MarkerOptions().position(latLng).title(name));
-        mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(latLngBounds, 0));
-
+        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 2));
     }
 
     private void getRoute(String destination) {
         mMapDirectionService.getDirection(destination, getString(R.string.google_maps_key))
+                .subscribeOn(Schedulers.io())
                 .flatMap(mMapDirectionResponse2Route)
                 .flatMap(mRoute2Leg)
                 .flatMap(mLeg2Step)
                 .map(mStep2Polyline)
                 .map(mPolyline2String)
                 .map(mString2LatLng)
-                .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(new Subscriber<List<LatLng>>() {
                     @Override
@@ -278,16 +273,19 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     private void runLocationQuery() {
-        Observable<SqlBrite.Query> locationQuery = db.createQuery(
+        final Observable<SqlBrite.Query> locationQuery = db.createQuery(
                 ErrandDBHelper.LOCATION_TABLE_NAME,
                 Utility.SQL_LOCATION_QUERY,
                 Utility.getSqlErrandArg(this));
-        locationSubscription = locationQuery.subscribe(new Action1<SqlBrite.Query>() {
+        locationSubscription = locationQuery.map(new Func1<SqlBrite.Query, Cursor>() {
             @Override
-            public void call(SqlBrite.Query query) {
-                locationCursor = query.run();
-                Log.d("MapsActivity", "locationQuery ran");
-                Log.d("MapsActivity", "count: " + locationCursor.getCount());
+            public Cursor call(SqlBrite.Query query) {
+                return query.run();
+            }
+        }).observeOn(AndroidSchedulers.mainThread()).subscribe(new Action1<Cursor>() {
+            @Override
+            public void call(Cursor cursor) {
+                mErrandAdapter.refreshList(cursor);
             }
         });
     }
