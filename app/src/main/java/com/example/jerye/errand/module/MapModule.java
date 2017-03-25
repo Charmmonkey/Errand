@@ -72,16 +72,6 @@ public class MapModule {
         };
     }
 
-    @Provides
-    @Singleton
-    Func1<Route, Observable<Leg>> provideLegFlatMap() {
-        return new Func1<Route, Observable<Leg>>() {
-            @Override
-            public Observable<Leg> call(Route route) {
-                return Observable.from(route.getLegs());
-            }
-        };
-    }
 
     @Provides
     @Singleton

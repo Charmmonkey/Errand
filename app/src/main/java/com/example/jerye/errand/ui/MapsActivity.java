@@ -39,6 +39,7 @@ import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.JointType;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.maps.model.RoundCap;
@@ -52,7 +53,6 @@ import javax.inject.Inject;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import rx.Observable;
-import rx.Subscriber;
 import rx.Subscription;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.functions.Action1;
@@ -74,6 +74,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private String TAG = "MapsActivity";
     private Subscription errandSubscription;
     private Subscription locationSubscription;
+    public static LatLngBounds latLngBounds;
 
     @BindView(R.id.left_drawer)
     RecyclerView drawer;
@@ -86,8 +87,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     ErrandAdapter mErrandAdapter;
     @Inject
     Func1<MapDirectionResponse, Observable<Route>> mMapDirectionResponse2Route;
-    @Inject
-    Func1<Route, Observable<Leg>> mRoute2Leg;
+    //    @Inject
+//    Func1<Route, Observable<Leg>> mRoute2Leg;
     @Inject
     Func1<Leg, Observable<Step>> mLeg2Step;
     @Inject
@@ -138,26 +139,18 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override
             public void onPlaceSelected(Place place) {
-
                 selectedName = (String) place.getName();
                 selectedId = place.getId();
                 selectedLatLng = place.getLatLng();
                 selectedType = place.getPlaceTypes().toString();
-                Log.d(TAG,selectedLatLng.toString());
+                getRoute(selectedName);
                 addMarker(selectedLatLng, selectedName);
-                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(selectedLatLng, 10));
-                Log.d(TAG,"Selected latlng to string: " + selectedLatLng.toString());
 
                 ContentValues locationCV = new ContentValues();
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_ID, selectedId);
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_NAME, selectedName);
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_LAT, selectedLatLng.latitude);
-                Log.d(TAG,"Selected lat to string: " + selectedLatLng.latitude + "");
-
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_LNG, selectedLatLng.longitude);
-                Log.d(TAG,"Selected lng to string: " + selectedLatLng.longitude + "");
-
-
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_TYPE, selectedType);
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_ERRAND_ID, 1);
                 Log.d(TAG, locationCV.toString());
@@ -252,31 +245,35 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMapDirectionService.getDirection(destination, getString(R.string.google_maps_key))
                 .subscribeOn(Schedulers.io())
                 .flatMap(mMapDirectionResponse2Route)
-                .flatMap(mRoute2Leg)
+                .flatMap(new Func1<Route, Observable<Leg>>() {
+                    @Override
+                    public Observable<Leg> call(Route route) {
+                        LatLng northEast = new LatLng(
+                                route.getBounds().getNortheast().getLat(),
+                                route.getBounds().getNortheast().getLng());
+                        LatLng southWest = new LatLng(
+                                route.getBounds().getSouthwest().getLat(),
+                                route.getBounds().getSouthwest().getLng());
+                        latLngBounds = new LatLngBounds(southWest, northEast);
+                        return Observable.from(route.getLegs());
+                    }
+                })
                 .flatMap(mLeg2Step)
                 .map(mStep2Polyline)
                 .map(mPolyline2String)
                 .map(mString2LatLng)
                 .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Subscriber<List<LatLng>>() {
+                .subscribe(new Action1<List<LatLng>>() {
                     @Override
-                    public void onCompleted() {
-                    }
-
-                    @Override
-                    public void onError(Throwable throwable) {
-                    }
-
-                    @Override
-                    public void onNext(List<LatLng> latLng) {
+                    public void call(List<LatLng> latLngs) {
                         PolylineOptions polylineOptions = new PolylineOptions().
                                 jointType(JointType.ROUND).
                                 endCap(new RoundCap()).
                                 startCap(new RoundCap()).
                                 width(20).
-                                addAll(latLng);
+                                addAll(latLngs);
                         mMap.addPolyline(polylineOptions);
-                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng.get(0), 15));
+                        mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(latLngBounds, 100));
                     }
                 });
     }
