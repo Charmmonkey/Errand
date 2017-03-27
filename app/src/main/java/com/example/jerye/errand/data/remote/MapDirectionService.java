@@ -13,7 +13,11 @@ import rx.Observable;
 public interface MapDirectionService {
 
     @GET("json?origin=Boston,MA")
-    Observable<MapDirectionResponse> getDirection(@Query("destination") String destination, @Query("key") String key);
+    Observable<MapDirectionResponse> getDirection(@Query("destination") String destination,
+                                                  @Query("waypoints") String wayPoints,
+                                                  @Query("key") String key);
+
+
 
 
 }

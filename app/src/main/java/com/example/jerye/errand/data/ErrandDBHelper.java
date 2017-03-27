@@ -13,9 +13,10 @@ public class ErrandDBHelper extends SQLiteOpenHelper {
     private static final String TAG = ErrandDBHelper.class.getSimpleName();
 
     private static final String DATABASE_NAME = "errand.db";
-    private static final int DATABASE_VERSION = 4;
+    private static final int DATABASE_VERSION = 5;
     public static final String LOCATION_TABLE_NAME = "location ";
     public static final String COLUMN_LOCATION_ID = "locationId";
+    public static final String COLUMN_LOCATION_ORDER = "locationOrder";
     public static final String COLUMN_LOCATION_NAME = "locationName";
     public static final String COLUMN_LOCATION_LAT = "locationLat";
     public static final String COLUMN_LOCATION_LNG = "locationLng";
@@ -30,11 +31,12 @@ public class ErrandDBHelper extends SQLiteOpenHelper {
 
     public static final int COLUMN_ID_LOCATION_BASE_ID = 0;
     public static final int COLUMN_ID_LOCATION_ID = 1;
-    public static final int COLUMN_ID_LOCATION_NAME = 2;
-    public static final int COLUMN_ID_LOCATION_LAT = 3;
-    public static final int COLUMN_ID_LOCATION_LNG = 4;
-    public static final int COLUMN_ID_LOCATION_TYPE = 5;
-    public static final int COLUMN_ID_LOCATION_ERRAND_ID = 6;
+    public static final int COLUMN_ID_LOCATION_ORDER = 2;
+    public static final int COLUMN_ID_LOCATION_NAME = 3;
+    public static final int COLUMN_ID_LOCATION_LAT = 4;
+    public static final int COLUMN_ID_LOCATION_LNG = 5;
+    public static final int COLUMN_ID_LOCATION_TYPE = 6;
+    public static final int COLUMN_ID_LOCATION_ERRAND_ID = 7;
 
     public static final int COLUMN_ID_ERRAND_BASE_ID = 0;
     public static final int COLUMN_ID_ERRAND_NAME = 1;
@@ -53,6 +55,7 @@ public class ErrandDBHelper extends SQLiteOpenHelper {
         final String SQL_CREATE_LOCATION_TABLE = "CREATE TABLE " + LOCATION_TABLE_NAME + "("
                 + BaseColumns._ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
                 + COLUMN_LOCATION_ID + " TEXT NOT NULL,"
+                + COLUMN_LOCATION_ORDER + " INTEGER, "
                 + COLUMN_LOCATION_NAME + " TEXT NOT NULL, "
                 + COLUMN_LOCATION_LAT + " REAL NOT NULL, "
                 + COLUMN_LOCATION_LNG + " REAL NOT NULL, "

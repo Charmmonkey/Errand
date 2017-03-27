@@ -10,6 +10,11 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import com.example.jerye.errand.R;
+import com.example.jerye.errand.utility.Utility;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -18,10 +23,14 @@ import butterknife.ButterKnife;
  * Created by jerye on 3/20/2017.
  */
 
-public class ErrandAdapter extends RecyclerView.Adapter<ErrandAdapter.ErrandViewHolder> {
+public class ErrandAdapter
+        extends RecyclerView.Adapter<ErrandAdapter.ErrandViewHolder>
+        implements Utility.ItemTouchHelperAdapter {
+    List<String> locationList = new ArrayList<>();
     Cursor mCursor;
     private ErrandAdapterClickHandler mErrandAdapterClickHandler;
     private Context mContext;
+    private static final String TAG = "ErrandAdapter.java";
 
     public ErrandAdapter(Context context, ErrandAdapterClickHandler clickHandler) {
         mContext = context;
@@ -39,15 +48,22 @@ public class ErrandAdapter extends RecyclerView.Adapter<ErrandAdapter.ErrandView
 
     @Override
     public void onBindViewHolder(ErrandViewHolder holder, int position) {
-        mCursor.moveToPosition(position);
-        holder.textView.setText(mCursor.getString(ErrandDBHelper.COLUMN_ID_LOCATION_NAME));
+//        mCursor.moveToPosition(position);
+//        holder.textView.setText(mCursor.getString(ErrandDBHelper.COLUMN_ID_LOCATION_NAME));
+        holder.textView.setText(locationList.get(position));
         Log.d("ErrandAdapter", "bind");
     }
 
 
     public void refreshList(Cursor cursor) {
+        Log.d(TAG, "ErrandAdapter refreshed");
         mCursor = cursor;
+        locationList.clear();
+        while (mCursor.moveToNext()) {
+            locationList.add(mCursor.getString(ErrandDBHelper.COLUMN_ID_LOCATION_NAME));
+        }
         notifyDataSetChanged();
+
     }
 
     @Override
@@ -56,7 +72,6 @@ public class ErrandAdapter extends RecyclerView.Adapter<ErrandAdapter.ErrandView
         if (mCursor != null) {
             count = mCursor.getCount();
         }
-        Log.d("ErrandAdapter", count + "");
         return count;
     }
 
@@ -78,5 +93,28 @@ public class ErrandAdapter extends RecyclerView.Adapter<ErrandAdapter.ErrandView
 
     public interface ErrandAdapterClickHandler {
         void onClick(int position);
+    }
+
+    @Override
+    public void onItemDrag(int from, int to) {
+        int sign;
+
+        if(from < to){
+            sign = 1;
+        }else{
+            sign = -1;
+        }
+
+        for(int i = from; i* sign < to * sign; i = i+sign){
+            Collections.swap(locationList, i , i+sign);
+        }
+
+        notifyItemMoved(from, to);
+    }
+
+    @Override
+    public void onItemSwipe(int position) {
+        locationList.remove(position);
+        notifyItemRemoved(position);
     }
 }

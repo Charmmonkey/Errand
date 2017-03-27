@@ -43,6 +43,7 @@ import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.maps.model.RoundCap;
+import com.squareup.leakcanary.LeakCanary;
 import com.squareup.sqlbrite.BriteDatabase;
 import com.squareup.sqlbrite.SqlBrite;
 
@@ -115,6 +116,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         Stetho.initializeWithDefaults(this);
 
+        if (LeakCanary.isInAnalyzerProcess(this)) {
+            return;
+        }
+        LeakCanary.install(getApplication());
+
         ButterKnife.bind(this);
 
         ErrandComponent errandComponent = DaggerErrandComponent.builder()
@@ -134,6 +140,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
+        Utility.provideItemTouchHelper(db, this, mErrandAdapter).attachToRecyclerView(drawer);
+
 
         final PlaceAutocompleteFragment autocompleteFragment = (PlaceAutocompleteFragment) getFragmentManager().findFragmentById(R.id.place_autocomplete_fragment);
         autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
@@ -143,16 +151,18 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 selectedId = place.getId();
                 selectedLatLng = place.getLatLng();
                 selectedType = place.getPlaceTypes().toString();
-                getRoute(selectedName);
+
                 addMarker(selectedLatLng, selectedName);
 
                 ContentValues locationCV = new ContentValues();
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_ID, selectedId);
+                locationCV.put(ErrandDBHelper.COLUMN_LOCATION_ORDER, mErrandAdapter.getItemCount()); // order is offset by -11 from _id (starting 0)
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_NAME, selectedName);
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_LAT, selectedLatLng.latitude);
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_LNG, selectedLatLng.longitude);
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_TYPE, selectedType);
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_ERRAND_ID, 1);
+
                 Log.d(TAG, locationCV.toString());
                 db.insert(ErrandDBHelper.LOCATION_TABLE_NAME, locationCV);
             }
@@ -241,23 +251,28 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 10));
     }
 
-    private void getRoute(String destination) {
-        mMapDirectionService.getDirection(destination, getString(R.string.google_maps_key))
+    private void getRoute(Cursor cursor) {
+
+        mMapDirectionService.getDirection(
+                Utility.getDestination(cursor),
+                Utility.getWayPoints(cursor),
+                getString(R.string.google_maps_key))
                 .subscribeOn(Schedulers.io())
                 .flatMap(mMapDirectionResponse2Route)
                 .flatMap(new Func1<Route, Observable<Leg>>() {
-                    @Override
-                    public Observable<Leg> call(Route route) {
-                        LatLng northEast = new LatLng(
-                                route.getBounds().getNortheast().getLat(),
-                                route.getBounds().getNortheast().getLng());
-                        LatLng southWest = new LatLng(
-                                route.getBounds().getSouthwest().getLat(),
-                                route.getBounds().getSouthwest().getLng());
-                        latLngBounds = new LatLngBounds(southWest, northEast);
-                        return Observable.from(route.getLegs());
-                    }
-                })
+                             @Override
+                             public Observable<Leg> call(Route route) {
+                                 LatLng northEast = new LatLng(
+                                         route.getBounds().getNortheast().getLat(),
+                                         route.getBounds().getNortheast().getLng());
+                                 LatLng southWest = new LatLng(
+                                         route.getBounds().getSouthwest().getLat(),
+                                         route.getBounds().getSouthwest().getLng());
+                                 latLngBounds = new LatLngBounds(southWest, northEast);
+                                 return Observable.from(route.getLegs());
+                             }
+                         }
+                )
                 .flatMap(mLeg2Step)
                 .map(mStep2Polyline)
                 .map(mPolyline2String)
@@ -293,6 +308,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             public void call(Cursor cursor) {
                 locationCursor = cursor;
                 mErrandAdapter.refreshList(locationCursor);
+                if (locationCursor.getCount() > 1) {
+//                    getRoute(locationCursor);
+                }
             }
         });
     }
