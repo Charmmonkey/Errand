@@ -38,17 +38,12 @@ public class MapModule {
             }
         };
     }
-
-    @Provides
-    @Singleton
-    Func1<Polyline, String> providePointsMap() {
-        return new Func1<Polyline, String>() {
-            @Override
-            public String call(Polyline polyline) {
-                return polyline.getPoints();
-            }
-        };
-    }
+//
+//    @Provides
+//    @Singleton
+//    Func1<Polyline, String> providePointsMap() {
+//        return
+//    }
 
     @Provides
     @Singleton

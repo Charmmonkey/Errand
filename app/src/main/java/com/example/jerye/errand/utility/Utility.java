@@ -11,7 +11,12 @@ import android.util.Log;
 
 import com.example.jerye.errand.data.ErrandAdapter;
 import com.example.jerye.errand.data.ErrandDBHelper;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.maps.android.PolyUtil;
 import com.squareup.sqlbrite.BriteDatabase;
+
+import java.util.List;
 
 /**
  * Created by jerye on 3/17/2017.
@@ -49,6 +54,25 @@ public class Utility {
             waypoints = waypoints + waypoint + "|";
         }
         return waypoints;
+    }
+
+    public static List<LatLng> getPreferredRoutePoints(Cursor cursor) {
+        if (cursor.moveToFirst()) {
+            String points = cursor.getString(ErrandDBHelper.COLUMN_ID_ERRAND_PATH);
+            return PolyUtil.decode(points);
+        }
+        return null;
+    }
+
+    public static LatLngBounds getPreferredRouteBound(Cursor cursor) {
+        LatLng ne = new LatLng(
+                cursor.getDouble(ErrandDBHelper.COLUMN_ID_ERRAND_NE_LAT),
+                cursor.getDouble(ErrandDBHelper.COLUMN_ID_ERRAND_NE_LNG));
+        LatLng sw = new LatLng(
+                cursor.getDouble(ErrandDBHelper.COLUMN_ID_ERRAND_SW_LAT),
+                cursor.getDouble(ErrandDBHelper.COLUMN_ID_ERRAND_SW_LNG));
+        LatLngBounds latLngBounds = new LatLngBounds(sw, ne);
+        return latLngBounds;
     }
 
     public interface ItemTouchHelperAdapter {
@@ -97,7 +121,7 @@ public class Utility {
                             ErrandDBHelper.COLUMN_LOCATION_ORDER + " = ?",
                             position + ""
                     );
-                    Log.d(TAG, "onSwiped" + errandAdapter.getItemCount() + "");
+                    Log.d(TAG, "onSwiped: " + errandAdapter.getItemCount() + "");
                     for (int i = position; i < errandAdapter.getItemCount() - 1; i++) {
                         ContentValues cv = new ContentValues();
                         cv.put(ErrandDBHelper.COLUMN_LOCATION_ORDER, i);
@@ -106,6 +130,8 @@ public class Utility {
                                 ErrandDBHelper.COLUMN_LOCATION_ORDER + " = ?",
                                 i + 1 + ""
                         );
+                        Log.d(TAG, "onSwiped for loop: " + cv.toString());
+
                     }
 
                     transaction.markSuccessful();

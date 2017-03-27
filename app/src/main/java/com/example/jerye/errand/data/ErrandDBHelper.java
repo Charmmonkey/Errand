@@ -13,7 +13,7 @@ public class ErrandDBHelper extends SQLiteOpenHelper {
     private static final String TAG = ErrandDBHelper.class.getSimpleName();
 
     private static final String DATABASE_NAME = "errand.db";
-    private static final int DATABASE_VERSION = 5;
+    private static final int DATABASE_VERSION = 6;
     public static final String LOCATION_TABLE_NAME = "location ";
     public static final String COLUMN_LOCATION_ID = "locationId";
     public static final String COLUMN_LOCATION_ORDER = "locationOrder";
@@ -27,6 +27,11 @@ public class ErrandDBHelper extends SQLiteOpenHelper {
     public static final String ERRAND_TABLE_NAME = "errand";
     public static final String COLUMN_ERRAND_NAME = "errandName";
     public static final String COLUMN_ERRAND_PATH = "errandPath";
+    public static final String COLUMN_ERRAND_NE_LAT = "errandNELat";
+    public static final String COLUMN_ERRAND_NE_LNG = "errandNELng";
+    public static final String COLUMN_ERRAND_SW_LAT = "errandSWLat";
+    public static final String COLUMN_ERRAND_SW_LNG = "errandSWLng";
+
 
 
     public static final int COLUMN_ID_LOCATION_BASE_ID = 0;
@@ -40,8 +45,11 @@ public class ErrandDBHelper extends SQLiteOpenHelper {
 
     public static final int COLUMN_ID_ERRAND_BASE_ID = 0;
     public static final int COLUMN_ID_ERRAND_NAME = 1;
-    public static final int COLUMN_ID_ERRAND_LOCATIONS = 2;
-    public static final int COLUMN_ID_ERRAND_PATH = 3;
+    public static final int COLUMN_ID_ERRAND_PATH = 2;
+    public static final int COLUMN_ID_ERRAND_NE_LAT = 3;
+    public static final int COLUMN_ID_ERRAND_NE_LNG = 4;
+    public static final int COLUMN_ID_ERRAND_SW_LAT = 5;
+    public static final int COLUMN_ID_ERRAND_SW_LNG = 6;
 
 
     public ErrandDBHelper(Context context) {
@@ -70,7 +78,11 @@ public class ErrandDBHelper extends SQLiteOpenHelper {
         final String SQL_CREATE_ERRAND_TABLE = "CREATE TABLE " + ERRAND_TABLE_NAME + "("
                 + BaseColumns._ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
                 + COLUMN_ERRAND_NAME + " TEXT NOT NULL, "
-                + COLUMN_ERRAND_PATH + " TEXT NOT NULL"
+                + COLUMN_ERRAND_PATH + " TEXT NOT NULL, "
+                + COLUMN_ERRAND_NE_LAT + " REAL NOT NULL, "
+                + COLUMN_ERRAND_NE_LNG + " REAL NOT NULL, "
+                + COLUMN_ERRAND_SW_LAT + " REAL NOT NULL, "
+                + COLUMN_ERRAND_SW_LNG + " REAL NOT NULL"
                 + ");";
         db.execSQL(SQL_CREATE_ERRAND_TABLE);
 

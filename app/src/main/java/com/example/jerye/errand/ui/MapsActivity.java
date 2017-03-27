@@ -76,6 +76,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private Subscription errandSubscription;
     private Subscription locationSubscription;
     public static LatLngBounds latLngBounds;
+    private String points;
+    private static double NELat;
+    private static double NELng;
+    private static double SwLat;
+    private static double SWLng;
+
 
     @BindView(R.id.left_drawer)
     RecyclerView drawer;
@@ -94,8 +100,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     Func1<Leg, Observable<Step>> mLeg2Step;
     @Inject
     Func1<Step, Polyline> mStep2Polyline;
-    @Inject
-    Func1<Polyline, String> mPolyline2String;
+//    @Inject
+//    Func1<Polyline, String> mPolyline2String;
     @Inject
     Func1<String, List<LatLng>> mString2LatLng;
 
@@ -194,7 +200,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
         Log.d("MapsActivity", mMap.toString());
-
+        
 //        LocationManager locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
 //        LocationProvider location = locationManager.getProvider(LocationManager.GPS_PROVIDER);
 //        Log.d("MapsActivity", location.toString()+"");
@@ -223,6 +229,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             @Override
             public void call(SqlBrite.Query query) {
                 errandCursor = query.run();
+
                 runLocationQuery();
             }
         });
@@ -232,10 +239,20 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     protected void onStop() {
         super.onStop();
+        ContentValues cv = new ContentValues();
+        cv.put(ErrandDBHelper.COLUMN_ERRAND_PATH, points);
+        cv.put(ErrandDBHelper.COLUMN_ERRAND_NAME, "Errand 1");
+        cv.put(ErrandDBHelper.COLUMN_ERRAND_NE_LAT, NELat);
+        cv.put(ErrandDBHelper.COLUMN_ERRAND_NE_LNG, NELng);
+        cv.put(ErrandDBHelper.COLUMN_ERRAND_SW_LAT, SwLat);
+        cv.put(ErrandDBHelper.COLUMN_ERRAND_SW_LNG, SWLng);
+
         mGoogleApiClient.disconnect();
 
         errandSubscription.unsubscribe();
+        db.insert(ErrandDBHelper.ERRAND_TABLE_NAME,cv);
         locationSubscription.unsubscribe();
+
 
     }
 
@@ -262,12 +279,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .flatMap(new Func1<Route, Observable<Leg>>() {
                              @Override
                              public Observable<Leg> call(Route route) {
-                                 LatLng northEast = new LatLng(
-                                         route.getBounds().getNortheast().getLat(),
-                                         route.getBounds().getNortheast().getLng());
-                                 LatLng southWest = new LatLng(
-                                         route.getBounds().getSouthwest().getLat(),
-                                         route.getBounds().getSouthwest().getLng());
+                                 NELat = route.getBounds().getNortheast().getLat();
+                                 NELng = route.getBounds().getNortheast().getLng();
+                                 SwLat = route.getBounds().getSouthwest().getLat();
+                                 SWLng = route.getBounds().getSouthwest().getLng();
+                                 LatLng northEast = new LatLng(NELat, NELng
+                                 );
+                                 LatLng southWest = new LatLng(SwLat, SWLng
+                                 );
                                  latLngBounds = new LatLngBounds(southWest, northEast);
                                  return Observable.from(route.getLegs());
                              }
@@ -275,20 +294,20 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 )
                 .flatMap(mLeg2Step)
                 .map(mStep2Polyline)
-                .map(mPolyline2String)
+                .map(new Func1<Polyline, String>() {
+                    @Override
+                    public String call(Polyline polyline) {
+                        points = polyline.getPoints();
+                        return points;
+                    }
+                })
                 .map(mString2LatLng)
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(new Action1<List<LatLng>>() {
                     @Override
                     public void call(List<LatLng> latLngs) {
-                        PolylineOptions polylineOptions = new PolylineOptions().
-                                jointType(JointType.ROUND).
-                                endCap(new RoundCap()).
-                                startCap(new RoundCap()).
-                                width(20).
-                                addAll(latLngs);
-                        mMap.addPolyline(polylineOptions);
-                        mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(latLngBounds, 100));
+
+                        plotPolyline(mMap, latLngs, latLngBounds);
                     }
                 });
     }
@@ -309,9 +328,21 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 locationCursor = cursor;
                 mErrandAdapter.refreshList(locationCursor);
                 if (locationCursor.getCount() > 1) {
-//                    getRoute(locationCursor);
+                    getRoute(locationCursor);
                 }
             }
         });
+    }
+
+    public void plotPolyline(GoogleMap googleMap, List<LatLng> path, LatLngBounds bound) {
+        PolylineOptions polylineOptions = new PolylineOptions().
+                jointType(JointType.ROUND).
+                endCap(new RoundCap()).
+                startCap(new RoundCap()).
+                width(20).
+                addAll(path);
+        googleMap.addPolyline(polylineOptions);
+        googleMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bound, 100));
+
     }
 }

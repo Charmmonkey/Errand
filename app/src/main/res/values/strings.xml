@@ -1,4 +1,7 @@
 <resources>
     <string name="app_name">Errand</string>
     <string name="title_activity_maps">Errand</string>
+
+    <string name="pref_errand_key">errand_key</string>
+    <string name="pref_errand_default">1</string>
 </resources>
