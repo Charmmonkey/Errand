@@ -5,9 +5,11 @@ import android.database.Cursor;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.FragmentActivity;
+import android.support.v4.widget.DrawerLayout;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
+import android.view.ViewTreeObserver;
 import android.widget.Toast;
 
 import com.example.jerye.errand.R;
@@ -62,6 +64,7 @@ import rx.schedulers.Schedulers;
 
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback,
+        GoogleMap.OnCameraIdleListener,
         OnConnectionFailedListener,
         ErrandAdapter.ErrandAdapterClickHandler {
     private static GoogleMap mMap;
@@ -85,6 +88,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     @BindView(R.id.left_drawer)
     RecyclerView drawer;
+    @BindView(R.id.drawer_layout)
+    DrawerLayout mainView;
 
     @Inject
     GoogleApiClient mGoogleApiClient;
@@ -146,6 +151,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
+        ViewTreeObserver vto = mainView.getViewTreeObserver();
+        vto.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+
+            }
+        });
+
         Utility.provideItemTouchHelper(db, this, mErrandAdapter).attachToRecyclerView(drawer);
 
 
@@ -200,15 +213,21 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
         Log.d("MapsActivity", mMap.toString());
-        
-//        LocationManager locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
-//        LocationProvider location = locationManager.getProvider(LocationManager.GPS_PROVIDER);
-//        Log.d("MapsActivity", location.toString()+"");
-
-//         Add a marker in Sydney and move the camera
+        mMap.setOnCameraIdleListener(this);
 
     }
 
+    @Override
+    public void onCameraIdle() {
+        // calls when layout fully inflates and map ready. Those 2 don't always match up.
+        if (errandCursor.moveToFirst()) {
+            List<LatLng> preferredRoute = Utility.getPreferredRoutePoints(errandCursor);
+            LatLngBounds preferredBound = Utility.getPreferredRouteBound(errandCursor);
+            plotPolyline(mMap,preferredRoute, preferredBound);
+        }
+        mMap.setOnCameraIdleListener(null);
+
+    }
 
     @Override
     protected void onStart() {
