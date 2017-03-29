@@ -49,6 +49,7 @@ import com.squareup.leakcanary.LeakCanary;
 import com.squareup.sqlbrite.BriteDatabase;
 import com.squareup.sqlbrite.SqlBrite;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.inject.Inject;
@@ -80,10 +81,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private Subscription locationSubscription;
     public static LatLngBounds latLngBounds;
     private String points;
+    private static com.google.android.gms.maps.model.Polyline polyline;
     private static double NELat;
     private static double NELng;
     private static double SwLat;
     private static double SWLng;
+    private ArrayList<String> markerNames = new ArrayList<>();
+    private ArrayList<LatLng> markerCoords = new ArrayList<>();
+    private ArrayList<LatLng> polylineCoords = new ArrayList<>();
+    private LatLngBounds polylineBounds;
+
 
 
     @BindView(R.id.left_drawer)
@@ -105,7 +112,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     Func1<Leg, Observable<Step>> mLeg2Step;
     @Inject
     Func1<Step, Polyline> mStep2Polyline;
-//    @Inject
+    //    @Inject
 //    Func1<Polyline, String> mPolyline2String;
     @Inject
     Func1<String, List<LatLng>> mString2LatLng;
@@ -223,7 +230,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         if (errandCursor.moveToFirst()) {
             List<LatLng> preferredRoute = Utility.getPreferredRoutePoints(errandCursor);
             LatLngBounds preferredBound = Utility.getPreferredRouteBound(errandCursor);
-            plotPolyline(mMap,preferredRoute, preferredBound);
+            plotPolyline(mMap, preferredRoute, preferredBound);
         }
         mMap.setOnCameraIdleListener(null);
 
@@ -269,13 +276,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mGoogleApiClient.disconnect();
 
         errandSubscription.unsubscribe();
-        db.insert(ErrandDBHelper.ERRAND_TABLE_NAME,cv);
+        db.insert(ErrandDBHelper.ERRAND_TABLE_NAME, cv);
         locationSubscription.unsubscribe();
 
 
     }
 
     private void addMarker(LatLng latLng, String name) {
+        markerNames.add(name);
+        markerCoords.add(latLng);
         mMap.addMarker(new MarkerOptions().position(latLng).title(name));
     }
 
@@ -287,11 +296,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 10));
     }
 
-    private void getRoute(Cursor cursor) {
+    private void getRoute(Cursor storedLocationsCursor) {
 
         mMapDirectionService.getDirection(
-                Utility.getDestination(cursor),
-                Utility.getWayPoints(cursor),
+                Utility.getOrigin(storedLocationsCursor),
+                Utility.getDestination(storedLocationsCursor),
+                Utility.getWayPoints(storedLocationsCursor),
                 getString(R.string.google_maps_key))
                 .subscribeOn(Schedulers.io())
                 .flatMap(mMapDirectionResponse2Route)
@@ -348,20 +358,49 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 mErrandAdapter.refreshList(locationCursor);
                 if (locationCursor.getCount() > 1) {
                     getRoute(locationCursor);
+                } else if (locationCursor.getCount() == 1) {
+                    moveCamera(0);
                 }
             }
+
         });
     }
 
     public void plotPolyline(GoogleMap googleMap, List<LatLng> path, LatLngBounds bound) {
+        if(polyline != null){
+            polyline.remove();
+        }
+        polylineCoords = (ArrayList<LatLng>) path;
+        polylineBounds = bound;
+
         PolylineOptions polylineOptions = new PolylineOptions().
                 jointType(JointType.ROUND).
                 endCap(new RoundCap()).
                 startCap(new RoundCap()).
                 width(20).
                 addAll(path);
-        googleMap.addPolyline(polylineOptions);
+        polyline = googleMap.addPolyline(polylineOptions);
         googleMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bound, 100));
+
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putParcelableArrayList("markerCoords",markerCoords);
+        outState.putStringArrayList("markerNames", markerNames);
+        outState.putParcelableArrayList("polylineCoords", polylineCoords);
+        outState.putParcelable("polylineBounds", polylineBounds);
+
+}
+
+    @Override
+    protected void onRestoreInstanceState(Bundle savedInstanceState) {
+        super.onRestoreInstanceState(savedInstanceState);
+        savedInstanceState.getParcelableArrayList("markerCoords");
+        savedInstanceState.getStringArrayList("markerNames");
+        savedInstanceState.getParcelableArrayList("polylineCoords");
+        savedInstanceState.getParcelable("polylineBounds");
 
     }
 }

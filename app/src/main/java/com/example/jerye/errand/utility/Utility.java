@@ -41,6 +41,11 @@ public class Utility {
         return PreferenceManager.getDefaultSharedPreferences(context).getString("errand", "1");
     }
 
+    public static String getOrigin(Cursor cursor) {
+        cursor.moveToFirst();
+        return cursor.getString(ErrandDBHelper.COLUMN_ID_LOCATION_NAME);
+    }
+
     public static String getDestination(Cursor cursor) {
         cursor.moveToLast();
         return cursor.getString(ErrandDBHelper.COLUMN_ID_LOCATION_NAME);
@@ -50,9 +55,11 @@ public class Utility {
         String waypoint;
         String waypoints = "";
         for (int i = 1; i < cursor.getCount() - 1; i++) {
+            cursor.moveToPosition(i);
             waypoint = cursor.getString(ErrandDBHelper.COLUMN_ID_LOCATION_NAME);
             waypoints = waypoints + waypoint + "|";
         }
+        Log.d(TAG, waypoints);
         return waypoints;
     }
 
