@@ -43,12 +43,12 @@ public class Utility {
 
     public static String getOrigin(Cursor cursor) {
         cursor.moveToFirst();
-        return cursor.getString(ErrandDBHelper.COLUMN_ID_LOCATION_NAME);
+        return "place_id:"+cursor.getString(ErrandDBHelper.COLUMN_ID_LOCATION_ID);
     }
 
     public static String getDestination(Cursor cursor) {
         cursor.moveToLast();
-        return cursor.getString(ErrandDBHelper.COLUMN_ID_LOCATION_NAME);
+        return "place_id:"+cursor.getString(ErrandDBHelper.COLUMN_ID_LOCATION_ID);
     }
 
     public static String getWayPoints(Cursor cursor) {
@@ -56,7 +56,7 @@ public class Utility {
         String waypoints = "";
         for (int i = 1; i < cursor.getCount() - 1; i++) {
             cursor.moveToPosition(i);
-            waypoint = cursor.getString(ErrandDBHelper.COLUMN_ID_LOCATION_NAME);
+            waypoint = "via:place_id:"+cursor.getString(ErrandDBHelper.COLUMN_ID_LOCATION_ID);
             waypoints = waypoints + waypoint + "|";
         }
         Log.d(TAG, waypoints);

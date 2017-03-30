@@ -293,7 +293,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         LatLng latLng = new LatLng(
                 locationCursor.getDouble(ErrandDBHelper.COLUMN_ID_LOCATION_LAT),
                 locationCursor.getDouble(ErrandDBHelper.COLUMN_ID_LOCATION_LNG));
-        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 10));
+        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15));
     }
 
     private void getRoute(Cursor storedLocationsCursor) {
@@ -397,10 +397,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     protected void onRestoreInstanceState(Bundle savedInstanceState) {
         super.onRestoreInstanceState(savedInstanceState);
-        savedInstanceState.getParcelableArrayList("markerCoords");
-        savedInstanceState.getStringArrayList("markerNames");
-        savedInstanceState.getParcelableArrayList("polylineCoords");
-        savedInstanceState.getParcelable("polylineBounds");
+        markerCoords = savedInstanceState.getParcelableArrayList("markerCoords");
+        markerNames = savedInstanceState.getStringArrayList("markerNames");
+        polylineCoords = savedInstanceState.getParcelableArrayList("polylineCoords");
+        polylineBounds = savedInstanceState.getParcelable("polylineBounds");
 
+        for(int i = 0; i < markerCoords.size(); i++){
+            mMap.addMarker(new MarkerOptions().position(markerCoords.get(i)).title(markerNames.get(i)));
+        }
+        plotPolyline(mMap, polylineCoords, polylineBounds );
     }
 }
