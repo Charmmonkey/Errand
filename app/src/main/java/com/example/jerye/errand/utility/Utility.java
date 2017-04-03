@@ -129,13 +129,13 @@ public class Utility {
                             position + ""
                     );
                     Log.d(TAG, "onSwiped: " + errandAdapter.getItemCount() + "");
-                    for (int i = position; i < errandAdapter.getItemCount() - 1; i++) {
+                    for (int i = position+1; i < errandAdapter.getItemCount(); i++) {
                         ContentValues cv = new ContentValues();
-                        cv.put(ErrandDBHelper.COLUMN_LOCATION_ORDER, i);
+                        cv.put(ErrandDBHelper.COLUMN_LOCATION_ORDER, i-1);
                         db.update(ErrandDBHelper.LOCATION_TABLE_NAME,
                                 cv,
                                 ErrandDBHelper.COLUMN_LOCATION_ORDER + " = ?",
-                                i + 1 + ""
+                                i + ""
                         );
                         Log.d(TAG, "onSwiped for loop: " + cv.toString());
 

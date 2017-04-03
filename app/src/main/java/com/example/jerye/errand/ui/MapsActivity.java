@@ -2,6 +2,7 @@ package com.example.jerye.errand.ui;
 
 import android.content.ContentValues;
 import android.database.Cursor;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.FragmentActivity;
@@ -335,7 +336,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .subscribe(new Action1<List<LatLng>>() {
                     @Override
                     public void call(List<LatLng> latLngs) {
-
                         plotPolyline(mMap, latLngs, latLngBounds);
                     }
                 });
@@ -367,9 +367,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     public void plotPolyline(GoogleMap googleMap, List<LatLng> path, LatLngBounds bound) {
-        if(polyline != null){
-            polyline.remove();
-        }
+
         polylineCoords = (ArrayList<LatLng>) path;
         polylineBounds = bound;
 
@@ -377,7 +375,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 jointType(JointType.ROUND).
                 endCap(new RoundCap()).
                 startCap(new RoundCap()).
-                width(20).
+                width(15).
+                color(Color.BLUE).
                 addAll(path);
         polyline = googleMap.addPolyline(polylineOptions);
         googleMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bound, 100));
