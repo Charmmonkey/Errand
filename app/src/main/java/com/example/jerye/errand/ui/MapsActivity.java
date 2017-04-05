@@ -10,7 +10,6 @@ import android.support.v4.widget.DrawerLayout;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
-import android.view.ViewTreeObserver;
 import android.widget.Toast;
 
 import com.example.jerye.errand.R;
@@ -83,15 +82,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public static LatLngBounds latLngBounds;
     private String points;
     private static com.google.android.gms.maps.model.Polyline polyline;
-    private static double NELat;
+    private static double NELat = 1000; // out of range
     private static double NELng;
-    private static double SwLat;
+    private static double SWLat;
     private static double SWLng;
     private ArrayList<String> markerNames = new ArrayList<>();
     private ArrayList<LatLng> markerCoords = new ArrayList<>();
     private ArrayList<LatLng> polylineCoords = new ArrayList<>();
     private LatLngBounds polylineBounds;
-
 
 
     @BindView(R.id.left_drawer)
@@ -159,14 +157,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
-        ViewTreeObserver vto = mainView.getViewTreeObserver();
-        vto.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-            @Override
-            public void onGlobalLayout() {
-
-            }
-        });
-
         Utility.provideItemTouchHelper(db, this, mErrandAdapter).attachToRecyclerView(drawer);
 
 
@@ -200,6 +190,23 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             }
         });
 
+        if(savedInstanceState == null){
+            Log.d(TAG, "instance state null");
+            // Errand Query
+            Observable<SqlBrite.Query> errandQuery = db.createQuery(
+                    ErrandDBHelper.ERRAND_TABLE_NAME,
+                    Utility.SQL_ERRAND_QUERY,
+                    Utility.getSqlErrandArg(this)
+            );
+            errandSubscription = errandQuery.subscribe(new Action1<SqlBrite.Query>() {
+                @Override
+                public void call(SqlBrite.Query query) {
+                    errandCursor = query.run();
+
+                    runLocationQuery();
+                }
+            });
+        }
 
     }
 
@@ -246,38 +253,27 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         drawer.setAdapter(mErrandAdapter);
 
 
-        // Errand Query
-        Observable<SqlBrite.Query> errandQuery = db.createQuery(
-                ErrandDBHelper.ERRAND_TABLE_NAME,
-                Utility.SQL_ERRAND_QUERY,
-                Utility.getSqlErrandArg(this)
-        );
-        errandSubscription = errandQuery.subscribe(new Action1<SqlBrite.Query>() {
-            @Override
-            public void call(SqlBrite.Query query) {
-                errandCursor = query.run();
-
-                runLocationQuery();
-            }
-        });
-
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        ContentValues cv = new ContentValues();
-        cv.put(ErrandDBHelper.COLUMN_ERRAND_PATH, points);
-        cv.put(ErrandDBHelper.COLUMN_ERRAND_NAME, "Errand 1");
-        cv.put(ErrandDBHelper.COLUMN_ERRAND_NE_LAT, NELat);
-        cv.put(ErrandDBHelper.COLUMN_ERRAND_NE_LNG, NELng);
-        cv.put(ErrandDBHelper.COLUMN_ERRAND_SW_LAT, SwLat);
-        cv.put(ErrandDBHelper.COLUMN_ERRAND_SW_LNG, SWLng);
 
         mGoogleApiClient.disconnect();
 
         errandSubscription.unsubscribe();
-        db.insert(ErrandDBHelper.ERRAND_TABLE_NAME, cv);
+
+        if(NELat != 1000){
+            ContentValues cv = new ContentValues();
+            cv.put(ErrandDBHelper.COLUMN_ERRAND_PATH, points);
+            cv.put(ErrandDBHelper.COLUMN_ERRAND_NAME, "Errand 1");
+            cv.put(ErrandDBHelper.COLUMN_ERRAND_NE_LAT, NELat);
+            cv.put(ErrandDBHelper.COLUMN_ERRAND_NE_LNG, NELng);
+            cv.put(ErrandDBHelper.COLUMN_ERRAND_SW_LAT, SWLat);
+            cv.put(ErrandDBHelper.COLUMN_ERRAND_SW_LNG, SWLng);
+            db.insert(ErrandDBHelper.ERRAND_TABLE_NAME, cv);
+        }
+
         locationSubscription.unsubscribe();
 
 
@@ -298,6 +294,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     private void getRoute(Cursor storedLocationsCursor) {
+        Log.d(TAG, "route get");
 
         mMapDirectionService.getDirection(
                 Utility.getOrigin(storedLocationsCursor),
@@ -311,11 +308,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                              public Observable<Leg> call(Route route) {
                                  NELat = route.getBounds().getNortheast().getLat();
                                  NELng = route.getBounds().getNortheast().getLng();
-                                 SwLat = route.getBounds().getSouthwest().getLat();
+                                 SWLat = route.getBounds().getSouthwest().getLat();
                                  SWLng = route.getBounds().getSouthwest().getLng();
                                  LatLng northEast = new LatLng(NELat, NELng
                                  );
-                                 LatLng southWest = new LatLng(SwLat, SWLng
+                                 LatLng southWest = new LatLng(SWLat, SWLng
                                  );
                                  latLngBounds = new LatLngBounds(southWest, northEast);
                                  return Observable.from(route.getLegs());
@@ -342,6 +339,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     private void runLocationQuery() {
+        Log.d(TAG, "location query ran");
+
         final Observable<SqlBrite.Query> locationQuery = db.createQuery(
                 ErrandDBHelper.LOCATION_TABLE_NAME,
                 Utility.SQL_LOCATION_QUERY,
@@ -356,6 +355,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             public void call(Cursor cursor) {
                 locationCursor = cursor;
                 mErrandAdapter.refreshList(locationCursor);
+
+                recreateMarkers(mMap, locationCursor);
+
                 if (locationCursor.getCount() > 1) {
                     getRoute(locationCursor);
                 } else if (locationCursor.getCount() == 1) {
@@ -367,6 +369,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     public void plotPolyline(GoogleMap googleMap, List<LatLng> path, LatLngBounds bound) {
+        Log.d(TAG, "polyline plotted");
 
         polylineCoords = (ArrayList<LatLng>) path;
         polylineBounds = bound;
@@ -386,12 +389,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
-        outState.putParcelableArrayList("markerCoords",markerCoords);
+        outState.putParcelableArrayList("markerCoords", markerCoords);
         outState.putStringArrayList("markerNames", markerNames);
         outState.putParcelableArrayList("polylineCoords", polylineCoords);
         outState.putParcelable("polylineBounds", polylineBounds);
 
-}
+    }
 
     @Override
     protected void onRestoreInstanceState(Bundle savedInstanceState) {
@@ -401,9 +404,22 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         polylineCoords = savedInstanceState.getParcelableArrayList("polylineCoords");
         polylineBounds = savedInstanceState.getParcelable("polylineBounds");
 
-        for(int i = 0; i < markerCoords.size(); i++){
+        for (int i = 0; i < markerCoords.size(); i++) {
             mMap.addMarker(new MarkerOptions().position(markerCoords.get(i)).title(markerNames.get(i)));
+            Log.d(TAG, "instance marker added");
         }
-        plotPolyline(mMap, polylineCoords, polylineBounds );
+        plotPolyline(mMap, polylineCoords, polylineBounds);
+    }
+
+    private void recreateMarkers(GoogleMap googleMap, Cursor cursor) {
+        Log.d(TAG, "recreated Markers");
+        while (cursor.moveToNext()) {
+            LatLng latLng = new LatLng(
+                    cursor.getDouble(ErrandDBHelper.COLUMN_ID_LOCATION_LAT),
+                    cursor.getDouble(ErrandDBHelper.COLUMN_ID_LOCATION_LNG));
+            String title = cursor.getString(ErrandDBHelper.COLUMN_ID_LOCATION_NAME);
+            googleMap.addMarker(new MarkerOptions().title(title).position(latLng));
+            Log.d(TAG, "markers recreated");
+        }
     }
 }
