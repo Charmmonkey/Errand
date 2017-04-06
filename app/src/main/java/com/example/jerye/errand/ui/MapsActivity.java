@@ -413,7 +413,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private void recreateMarkers(GoogleMap googleMap, Cursor cursor) {
         Log.d(TAG, "recreated Markers");
-        while (cursor.moveToNext()) {
+        for (int i = 0; i<cursor.getCount(); i++) {
+            cursor.moveToPosition(i);
             LatLng latLng = new LatLng(
                     cursor.getDouble(ErrandDBHelper.COLUMN_ID_LOCATION_LAT),
                     cursor.getDouble(ErrandDBHelper.COLUMN_ID_LOCATION_LNG));
@@ -421,5 +422,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             googleMap.addMarker(new MarkerOptions().title(title).position(latLng));
             Log.d(TAG, "markers recreated");
         }
+
     }
 }
