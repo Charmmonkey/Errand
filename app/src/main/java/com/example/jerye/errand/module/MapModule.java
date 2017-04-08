@@ -38,12 +38,7 @@ public class MapModule {
             }
         };
     }
-//
-//    @Provides
-//    @Singleton
-//    Func1<Polyline, String> providePointsMap() {
-//        return
-//    }
+
 
     @Provides
     @Singleton

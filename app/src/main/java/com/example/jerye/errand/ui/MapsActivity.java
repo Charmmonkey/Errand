@@ -19,6 +19,7 @@ import com.example.jerye.errand.data.ErrandAdapter;
 import com.example.jerye.errand.data.ErrandDBHelper;
 import com.example.jerye.errand.data.model.Leg;
 import com.example.jerye.errand.data.model.MapDirectionResponse;
+import com.example.jerye.errand.data.model.OverviewPolyline;
 import com.example.jerye.errand.data.model.Polyline;
 import com.example.jerye.errand.data.model.Route;
 import com.example.jerye.errand.data.model.Step;
@@ -69,27 +70,24 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         OnConnectionFailedListener,
         ErrandAdapter.ErrandAdapterClickHandler {
     private static GoogleMap mMap;
-    private String selectedName;
-    private String selectedId;
+    private String selectedName, selectedId, selectedType;
     private LatLng selectedLatLng;
-    private String selectedType;
-    private static Cursor locationCursor;
-    private static Cursor errandCursor;
+    private static Cursor locationCursor, errandCursor;
     private BriteDatabase db;
     private String TAG = "MapsActivity";
-    private Subscription errandSubscription;
-    private Subscription locationSubscription;
+    private Subscription errandSubscription, locationSubscription;
     public static LatLngBounds latLngBounds;
-    private String points;
+    private static String points;
     private static com.google.android.gms.maps.model.Polyline polyline;
-    private static double NELat = 1000; // out of range
-    private static double NELng;
-    private static double SWLat;
-    private static double SWLng;
+    private static double NELat = 1000, NELng, SWLat, SWLng; // out of range
     private ArrayList<String> markerNames = new ArrayList<>();
     private ArrayList<LatLng> markerCoords = new ArrayList<>();
     private ArrayList<LatLng> polylineCoords = new ArrayList<>();
     private LatLngBounds polylineBounds;
+    private final static String
+            INSTANCE_SAVED = "INSTANCE_SAVED", INSTANCE_ROTATE = "INSTANCE_ROTATE",
+            INSTANCE_NEW = "INSTANCE_NEW", INSTANCE_IDLE = "INSTANCE_IDLE";
+    private static String INSTANCE_STATE = INSTANCE_IDLE;
 
 
     @BindView(R.id.left_drawer)
@@ -164,6 +162,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override
             public void onPlaceSelected(Place place) {
+                INSTANCE_STATE = INSTANCE_NEW;
                 selectedName = (String) place.getName();
                 selectedId = place.getId();
                 selectedLatLng = place.getLatLng();
@@ -180,7 +179,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_TYPE, selectedType);
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_ERRAND_ID, 1);
 
-                Log.d(TAG, locationCV.toString());
+                Log.d(TAG, "Place selected locationCV: " + locationCV.toString());
                 db.insert(ErrandDBHelper.LOCATION_TABLE_NAME, locationCV);
             }
 
@@ -227,7 +226,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
-        Log.d("MapsActivity", mMap.toString());
+        Log.d("MapsActivity", "Map ready: " + mMap.toString());
         mMap.setOnCameraIdleListener(this);
 
     }
@@ -235,11 +234,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     public void onCameraIdle() {
         // calls when layout fully inflates and map ready. Those 2 don't always match up.
-        if (errandCursor.moveToFirst()) {
-            List<LatLng> preferredRoute = Utility.getPreferredRoutePoints(errandCursor);
-            LatLngBounds preferredBound = Utility.getPreferredRouteBound(errandCursor);
-            plotPolyline(mMap, preferredRoute, preferredBound);
-        }
+        Log.d(TAG, "Camera Idle");
+        instanceStateManager(INSTANCE_STATE);
+
+
         mMap.setOnCameraIdleListener(null);
 
     }
@@ -258,13 +256,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     protected void onStop() {
         super.onStop();
+        Log.d(TAG, "onStop");
 
         mGoogleApiClient.disconnect();
 
-        errandSubscription.unsubscribe();
+//        errandSubscription.unsubscribe();
 
         if(NELat != 1000){
             ContentValues cv = new ContentValues();
+            Log.d(TAG, "onStop points: " + points);
+            Log.d(TAG, "onStop NELat: " + NELat);
             cv.put(ErrandDBHelper.COLUMN_ERRAND_PATH, points);
             cv.put(ErrandDBHelper.COLUMN_ERRAND_NAME, "Errand 1");
             cv.put(ErrandDBHelper.COLUMN_ERRAND_NE_LAT, NELat);
@@ -273,8 +274,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             cv.put(ErrandDBHelper.COLUMN_ERRAND_SW_LNG, SWLng);
             db.insert(ErrandDBHelper.ERRAND_TABLE_NAME, cv);
         }
-
-        locationSubscription.unsubscribe();
+//        locationSubscription.unsubscribe();
 
 
     }
@@ -303,28 +303,26 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 getString(R.string.google_maps_key))
                 .subscribeOn(Schedulers.io())
                 .flatMap(mMapDirectionResponse2Route)
-                .flatMap(new Func1<Route, Observable<Leg>>() {
-                             @Override
-                             public Observable<Leg> call(Route route) {
-                                 NELat = route.getBounds().getNortheast().getLat();
-                                 NELng = route.getBounds().getNortheast().getLng();
-                                 SWLat = route.getBounds().getSouthwest().getLat();
-                                 SWLng = route.getBounds().getSouthwest().getLng();
-                                 LatLng northEast = new LatLng(NELat, NELng
-                                 );
-                                 LatLng southWest = new LatLng(SWLat, SWLng
-                                 );
-                                 latLngBounds = new LatLngBounds(southWest, northEast);
-                                 return Observable.from(route.getLegs());
-                             }
+                .map(new Func1<Route, OverviewPolyline>() {
+                         @Override
+                         public OverviewPolyline call(Route route) {
+                             NELat = route.getBounds().getNortheast().getLat();
+                             NELng = route.getBounds().getNortheast().getLng();
+                             SWLat = route.getBounds().getSouthwest().getLat();
+                             SWLng = route.getBounds().getSouthwest().getLng();
+                             LatLng northEast = new LatLng(NELat, NELng
+                             );
+                             LatLng southWest = new LatLng(SWLat, SWLng
+                             );
+                             latLngBounds = new LatLngBounds(southWest, northEast);
+                             return route.getOverviewPolyline();
                          }
+                     }
                 )
-                .flatMap(mLeg2Step)
-                .map(mStep2Polyline)
-                .map(new Func1<Polyline, String>() {
+                .map(new Func1<OverviewPolyline, String>() {
                     @Override
-                    public String call(Polyline polyline) {
-                        points = polyline.getPoints();
+                    public String call(OverviewPolyline overviewPolyline) {
+                        points = overviewPolyline.getPoints();
                         return points;
                     }
                 })
@@ -333,6 +331,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .subscribe(new Action1<List<LatLng>>() {
                     @Override
                     public void call(List<LatLng> latLngs) {
+                        Log.d(TAG, "get Route: plot polyline");
                         plotPolyline(mMap, latLngs, latLngBounds);
                     }
                 });
@@ -353,22 +352,17 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }).observeOn(AndroidSchedulers.mainThread()).subscribe(new Action1<Cursor>() {
             @Override
             public void call(Cursor cursor) {
+                Log.d(TAG, "location callback triggered");
                 locationCursor = cursor;
-                mErrandAdapter.refreshList(locationCursor);
 
-                recreateMarkers(mMap, locationCursor);
-
-                if (locationCursor.getCount() > 1) {
-                    getRoute(locationCursor);
-                } else if (locationCursor.getCount() == 1) {
-                    moveCamera(0);
-                }
+                instanceStateManager(INSTANCE_STATE);
             }
 
         });
     }
 
     public void plotPolyline(GoogleMap googleMap, List<LatLng> path, LatLngBounds bound) {
+        Log.d(TAG, "plot polyline: " + path.toString());
         Log.d(TAG, "polyline plotted");
 
         polylineCoords = (ArrayList<LatLng>) path;
@@ -398,17 +392,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     @Override
     protected void onRestoreInstanceState(Bundle savedInstanceState) {
+        Log.d(TAG, "restored instance state");
         super.onRestoreInstanceState(savedInstanceState);
+        INSTANCE_STATE = INSTANCE_ROTATE;
         markerCoords = savedInstanceState.getParcelableArrayList("markerCoords");
         markerNames = savedInstanceState.getStringArrayList("markerNames");
         polylineCoords = savedInstanceState.getParcelableArrayList("polylineCoords");
         polylineBounds = savedInstanceState.getParcelable("polylineBounds");
 
-        for (int i = 0; i < markerCoords.size(); i++) {
-            mMap.addMarker(new MarkerOptions().position(markerCoords.get(i)).title(markerNames.get(i)));
-            Log.d(TAG, "instance marker added");
-        }
-        plotPolyline(mMap, polylineCoords, polylineBounds);
     }
 
     private void recreateMarkers(GoogleMap googleMap, Cursor cursor) {
@@ -419,9 +410,69 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     cursor.getDouble(ErrandDBHelper.COLUMN_ID_LOCATION_LAT),
                     cursor.getDouble(ErrandDBHelper.COLUMN_ID_LOCATION_LNG));
             String title = cursor.getString(ErrandDBHelper.COLUMN_ID_LOCATION_NAME);
+            markerCoords.add(latLng);
+            markerNames.add(title);
+
             googleMap.addMarker(new MarkerOptions().title(title).position(latLng));
             Log.d(TAG, "markers recreated");
         }
 
+    }
+
+    private void instanceStateManager(String state){
+        Log.d(TAG, state);
+        switch(state){
+            case INSTANCE_NEW:
+                // New place selected.
+
+                mErrandAdapter.refreshList(locationCursor);
+                recreateMarkers(mMap, locationCursor);
+                if (locationCursor.getCount() > 1 ) {
+                    getRoute(locationCursor);
+                }else if (locationCursor.getCount() == 1 ) {
+                    moveCamera(0);
+                }
+
+                break;
+            case INSTANCE_SAVED:
+                // Query for cached data one time on activity first start
+
+                if (errandCursor.moveToFirst()) {
+                    List<LatLng> preferredRoute = Utility.getPreferredRoutePoints(errandCursor);
+                    LatLngBounds preferredBound = Utility.getPreferredRouteBound(errandCursor);
+                    Log.d(TAG, "cameraIdle");
+                    plotPolyline(mMap, preferredRoute, preferredBound);
+                }
+
+                mErrandAdapter.refreshList(locationCursor);
+                recreateMarkers(mMap, locationCursor);
+
+
+                // Query cached only, Prevents calling Google Directions API.
+                INSTANCE_STATE = INSTANCE_IDLE;
+
+                break;
+            case INSTANCE_ROTATE:
+                // On restore instance state
+                try{
+                    Log.d(TAG, "before rotate refresh");
+                    mErrandAdapter.refreshList(locationCursor);
+
+                }catch(Exception e){
+                    e.printStackTrace();
+                }
+
+                for (int i = 0; i < markerCoords.size(); i++) {
+                    mMap.addMarker(new MarkerOptions().position(markerCoords.get(i)).title(markerNames.get(i)));
+                    Log.d(TAG, "instance marker added");
+                }
+
+                Log.d(TAG, "Restore instance state polyline: " + polylineCoords.toString());
+                plotPolyline(mMap, polylineCoords, polylineBounds);
+                break;
+            case INSTANCE_IDLE:
+                INSTANCE_STATE = INSTANCE_SAVED;
+                break;
+        }
     }
 }
