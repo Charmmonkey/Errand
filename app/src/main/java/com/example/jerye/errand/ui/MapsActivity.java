@@ -465,6 +465,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             case INSTANCE_ROTATE:
                 // On restore instance state
 
+                mErrandAdapter.refreshList(locationCursor);
                 for (int i = 0; i < markerCoords.size(); i++) {
                     mMap.addMarker(new MarkerOptions().position(markerCoords.get(i)).title(markerNames.get(i)));
                     Log.d(TAG, "instance marker added");
