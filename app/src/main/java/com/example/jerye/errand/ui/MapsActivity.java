@@ -4,6 +4,7 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.provider.BaseColumns;
 import android.support.annotation.NonNull;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.widget.DrawerLayout;
@@ -46,7 +47,6 @@ import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.maps.model.RoundCap;
-import com.squareup.leakcanary.LeakCanary;
 import com.squareup.sqlbrite.BriteDatabase;
 import com.squareup.sqlbrite.SqlBrite;
 
@@ -86,8 +86,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private LatLngBounds polylineBounds;
     private final static String
             INSTANCE_SAVED = "INSTANCE_SAVED", INSTANCE_ROTATE = "INSTANCE_ROTATE",
-            INSTANCE_NEW = "INSTANCE_NEW", INSTANCE_IDLE = "INSTANCE_IDLE";
-    private static String INSTANCE_STATE = INSTANCE_IDLE;
+            INSTANCE_NEW = "INSTANCE_NEW", INSTANCE_SAVED_IDLE = "INSTANCE_SAVED_IDLE",
+            INSTANCE_ROTATE_IDLE = "INSTANCE_ROTATE_IDLE", INSTANCE_IDLE = "INSTANCE_IDLE";
+    private static String INSTANCE_STATE = INSTANCE_SAVED_IDLE;
 
 
     @BindView(R.id.left_drawer)
@@ -131,10 +132,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         Stetho.initializeWithDefaults(this);
 
-        if (LeakCanary.isInAnalyzerProcess(this)) {
-            return;
-        }
-        LeakCanary.install(getApplication());
+//        if (LeakCanary.isInAnalyzerProcess(this)) {
+//            return;
+//        }
+//        LeakCanary.install(getApplication());
 
         ButterKnife.bind(this);
 
@@ -172,7 +173,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                 ContentValues locationCV = new ContentValues();
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_ID, selectedId);
-                locationCV.put(ErrandDBHelper.COLUMN_LOCATION_ORDER, mErrandAdapter.getItemCount()); // order is offset by -11 from _id (starting 0)
+                locationCV.put(ErrandDBHelper.COLUMN_LOCATION_ORDER, locationCursor.getCount()); // order is offset by -11 from _id (starting 0)
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_NAME, selectedName);
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_LAT, selectedLatLng.latitude);
                 locationCV.put(ErrandDBHelper.COLUMN_LOCATION_LNG, selectedLatLng.longitude);
@@ -205,6 +206,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     runLocationQuery();
                 }
             });
+            errandSubscription.unsubscribe();
+        }else{
+            runLocationQuery();
         }
 
     }
@@ -246,6 +250,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     protected void onStart() {
         super.onStart();
         mGoogleApiClient.connect();
+        Log.d(TAG, "onStart");
         RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false);
         drawer.setLayoutManager(layoutManager);
         drawer.setAdapter(mErrandAdapter);
@@ -260,7 +265,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         mGoogleApiClient.disconnect();
 
-//        errandSubscription.unsubscribe();
 
         if(NELat != 1000){
             ContentValues cv = new ContentValues();
@@ -272,7 +276,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             cv.put(ErrandDBHelper.COLUMN_ERRAND_NE_LNG, NELng);
             cv.put(ErrandDBHelper.COLUMN_ERRAND_SW_LAT, SWLat);
             cv.put(ErrandDBHelper.COLUMN_ERRAND_SW_LNG, SWLng);
-            db.insert(ErrandDBHelper.ERRAND_TABLE_NAME, cv);
+
+            if(errandCursor.getCount() == 0){
+                db.insert(ErrandDBHelper.ERRAND_TABLE_NAME, cv);
+            }else{
+                db.update(ErrandDBHelper.ERRAND_TABLE_NAME, cv, BaseColumns._ID + "= ?", Utility.getSqlErrandArg(this));
+            }
+
         }
 //        locationSubscription.unsubscribe();
 
@@ -394,7 +404,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     protected void onRestoreInstanceState(Bundle savedInstanceState) {
         Log.d(TAG, "restored instance state");
         super.onRestoreInstanceState(savedInstanceState);
-        INSTANCE_STATE = INSTANCE_ROTATE;
+        INSTANCE_STATE = INSTANCE_ROTATE_IDLE;
         markerCoords = savedInstanceState.getParcelableArrayList("markerCoords");
         markerNames = savedInstanceState.getStringArrayList("markerNames");
         polylineCoords = savedInstanceState.getParcelableArrayList("polylineCoords");
@@ -454,13 +464,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 break;
             case INSTANCE_ROTATE:
                 // On restore instance state
-                try{
-                    Log.d(TAG, "before rotate refresh");
-                    mErrandAdapter.refreshList(locationCursor);
-
-                }catch(Exception e){
-                    e.printStackTrace();
-                }
 
                 for (int i = 0; i < markerCoords.size(); i++) {
                     mMap.addMarker(new MarkerOptions().position(markerCoords.get(i)).title(markerNames.get(i)));
@@ -469,9 +472,17 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                 Log.d(TAG, "Restore instance state polyline: " + polylineCoords.toString());
                 plotPolyline(mMap, polylineCoords, polylineBounds);
+
+                INSTANCE_STATE = INSTANCE_IDLE;
+
+                break;
+            case INSTANCE_SAVED_IDLE:
+                INSTANCE_STATE = INSTANCE_SAVED;
+                break;
+            case INSTANCE_ROTATE_IDLE:
+                INSTANCE_STATE = INSTANCE_ROTATE;
                 break;
             case INSTANCE_IDLE:
-                INSTANCE_STATE = INSTANCE_SAVED;
                 break;
         }
     }
