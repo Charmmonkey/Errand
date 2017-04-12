@@ -28,6 +28,7 @@ import com.example.jerye.errand.data.remote.MapDirectionService;
 import com.example.jerye.errand.module.MapModule;
 import com.example.jerye.errand.module.NetworkModule;
 import com.example.jerye.errand.module.ViewModule;
+import com.example.jerye.errand.utility.GestureUtility;
 import com.example.jerye.errand.utility.Utility;
 import com.facebook.stetho.Stetho;
 import com.google.android.gms.common.ConnectionResult;
@@ -84,11 +85,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private ArrayList<LatLng> markerCoords = new ArrayList<>();
     private ArrayList<LatLng> polylineCoords = new ArrayList<>();
     private LatLngBounds polylineBounds;
-    private final static String
+    public final static String
             INSTANCE_SAVED = "INSTANCE_SAVED", INSTANCE_ROTATE = "INSTANCE_ROTATE",
             INSTANCE_NEW = "INSTANCE_NEW", INSTANCE_SAVED_IDLE = "INSTANCE_SAVED_IDLE",
             INSTANCE_ROTATE_IDLE = "INSTANCE_ROTATE_IDLE", INSTANCE_IDLE = "INSTANCE_IDLE";
-    private static String INSTANCE_STATE = INSTANCE_SAVED_IDLE;
+    public static String INSTANCE_STATE = INSTANCE_SAVED_IDLE;
 
 
     @BindView(R.id.left_drawer)
@@ -156,7 +157,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
-        Utility.provideItemTouchHelper(db, this, mErrandAdapter).attachToRecyclerView(drawer);
+        GestureUtility.provideItemTouchHelper(db, this, mErrandAdapter).attachToRecyclerView(drawer);
 
 
         final PlaceAutocompleteFragment autocompleteFragment = (PlaceAutocompleteFragment) getFragmentManager().findFragmentById(R.id.place_autocomplete_fragment);
@@ -265,6 +266,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         mGoogleApiClient.disconnect();
 
+        errandSubscription.unsubscribe();
 
         if(NELat != 1000){
             ContentValues cv = new ContentValues();
@@ -284,7 +286,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             }
 
         }
-//        locationSubscription.unsubscribe();
+        locationSubscription.unsubscribe();
 
 
     }
@@ -435,6 +437,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             case INSTANCE_NEW:
                 // New place selected.
 
+                mMap.clear();
+
                 mErrandAdapter.refreshList(locationCursor);
                 recreateMarkers(mMap, locationCursor);
                 if (locationCursor.getCount() > 1 ) {
@@ -447,6 +451,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             case INSTANCE_SAVED:
                 // Query for cached data one time on activity first start
 
+                mMap.clear();
+
                 if (errandCursor.moveToFirst()) {
                     List<LatLng> preferredRoute = Utility.getPreferredRoutePoints(errandCursor);
                     LatLngBounds preferredBound = Utility.getPreferredRouteBound(errandCursor);
@@ -457,8 +463,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 mErrandAdapter.refreshList(locationCursor);
                 recreateMarkers(mMap, locationCursor);
 
-
-                // Query cached only, Prevents calling Google Directions API.
                 INSTANCE_STATE = INSTANCE_IDLE;
 
                 break;

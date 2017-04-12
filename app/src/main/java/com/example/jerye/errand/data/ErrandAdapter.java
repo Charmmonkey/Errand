@@ -10,7 +10,7 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import com.example.jerye.errand.R;
-import com.example.jerye.errand.utility.Utility;
+import com.example.jerye.errand.utility.GestureUtility;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -25,7 +25,7 @@ import butterknife.ButterKnife;
 
 public class ErrandAdapter
         extends RecyclerView.Adapter<ErrandAdapter.ErrandViewHolder>
-        implements Utility.ItemTouchHelperAdapter {
+        implements GestureUtility.ItemTouchHelperAdapter {
     List<String> locationList = new ArrayList<>();
     Cursor mCursor;
     private ErrandAdapterClickHandler mErrandAdapterClickHandler;
