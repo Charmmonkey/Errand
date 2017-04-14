@@ -12,7 +12,8 @@
         <android.support.v7.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@android:color/white">
+            android:background="@android:color/white"
+            android:layout_margin="8dp">
 
             <fragment
                 android:id="@+id/place_autocomplete_fragment"
@@ -31,11 +32,26 @@
             />
     </RelativeLayout>
 
-    <android.support.v7.widget.RecyclerView android:id="@+id/left_drawer"
+    <LinearLayout
         android:layout_width="160dp"
-        android:layout_height="400dp"
-        android:layout_gravity="start"
-        android:background="#111"/>
+        android:layout_height="match_parent"
+        android:weightSum="5"
+        android:orientation="vertical">
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="4"/>
+
+        <android.support.v7.widget.RecyclerView android:id="@+id/left_drawer"
+            android:layout_weight="1"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_gravity="start"
+            android:background="#111"/>
+
+    </LinearLayout>
+
 
 
 </android.support.v4.widget.DrawerLayout>

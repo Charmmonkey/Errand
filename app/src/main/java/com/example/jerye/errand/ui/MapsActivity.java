@@ -191,26 +191,24 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             }
         });
 
-        if(savedInstanceState == null){
-            Log.d(TAG, "instance state null");
-            // Errand Query
-            Observable<SqlBrite.Query> errandQuery = db.createQuery(
-                    ErrandDBHelper.ERRAND_TABLE_NAME,
-                    Utility.SQL_ERRAND_QUERY,
-                    Utility.getSqlErrandArg(this)
-            );
-            errandSubscription = errandQuery.subscribe(new Action1<SqlBrite.Query>() {
-                @Override
-                public void call(SqlBrite.Query query) {
-                    errandCursor = query.run();
 
-                    runLocationQuery();
-                }
-            });
-            errandSubscription.unsubscribe();
-        }else{
-            runLocationQuery();
-        }
+        Log.d(TAG, "instance state null");
+        // Errand Query
+        Observable<SqlBrite.Query> errandQuery = db.createQuery(
+                ErrandDBHelper.ERRAND_TABLE_NAME,
+                Utility.SQL_ERRAND_QUERY,
+                Utility.getSqlErrandArg(this)
+        );
+        errandSubscription = errandQuery.subscribe(new Action1<SqlBrite.Query>() {
+            @Override
+            public void call(SqlBrite.Query query) {
+                errandCursor = query.run();
+
+                runLocationQuery();
+            }
+        });
+        errandSubscription.unsubscribe();
+
 
     }
 
@@ -266,9 +264,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         mGoogleApiClient.disconnect();
 
-        errandSubscription.unsubscribe();
-
-        if(NELat != 1000){
+        if (NELat != 1000) {
             ContentValues cv = new ContentValues();
             Log.d(TAG, "onStop points: " + points);
             Log.d(TAG, "onStop NELat: " + NELat);
@@ -279,9 +275,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             cv.put(ErrandDBHelper.COLUMN_ERRAND_SW_LAT, SWLat);
             cv.put(ErrandDBHelper.COLUMN_ERRAND_SW_LNG, SWLng);
 
-            if(errandCursor.getCount() == 0){
+            if (errandCursor.getCount() == 0) {
                 db.insert(ErrandDBHelper.ERRAND_TABLE_NAME, cv);
-            }else{
+            } else {
                 db.update(ErrandDBHelper.ERRAND_TABLE_NAME, cv, BaseColumns._ID + "= ?", Utility.getSqlErrandArg(this));
             }
 
@@ -416,7 +412,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private void recreateMarkers(GoogleMap googleMap, Cursor cursor) {
         Log.d(TAG, "recreated Markers");
-        for (int i = 0; i<cursor.getCount(); i++) {
+        for (int i = 0; i < cursor.getCount(); i++) {
             cursor.moveToPosition(i);
             LatLng latLng = new LatLng(
                     cursor.getDouble(ErrandDBHelper.COLUMN_ID_LOCATION_LAT),
@@ -431,9 +427,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     }
 
-    private void instanceStateManager(String state){
+    private void instanceStateManager(String state) {
         Log.d(TAG, state);
-        switch(state){
+        switch (state) {
             case INSTANCE_NEW:
                 // New place selected.
 
@@ -441,9 +437,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                 mErrandAdapter.refreshList(locationCursor);
                 recreateMarkers(mMap, locationCursor);
-                if (locationCursor.getCount() > 1 ) {
+                if (locationCursor.getCount() > 1) {
                     getRoute(locationCursor);
-                }else if (locationCursor.getCount() == 1 ) {
+                } else if (locationCursor.getCount() == 1) {
                     moveCamera(0);
                 }
 
