@@ -53,7 +53,6 @@ public class GestureUtility {
                 // delete from database
                 Log.d(TAG, "onSwiped");
                 int position = viewHolder.getAdapterPosition();
-//                errandAdapter.onItemSwipe(position);
 
                 BriteDatabase.Transaction transaction = db.newTransaction();
 
@@ -80,6 +79,12 @@ public class GestureUtility {
                     transaction.markSuccessful();
                 } finally {
                     transaction.end();
+
+                    try{
+                        errandAdapter.onItemSwipe(position);
+                    }catch(Exception e){
+                        e.printStackTrace();
+                    }
                 }
 
             }

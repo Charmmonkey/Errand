@@ -69,8 +69,9 @@ public class ErrandAdapter
     @Override
     public int getItemCount() {
         int count = 0;
-        if (mCursor != null) {
-            count = mCursor.getCount();
+        if (locationList != null) {
+//            count = mCursor.getCount();
+            count = locationList.size();
         }
         return count;
     }
@@ -114,7 +115,11 @@ public class ErrandAdapter
 
     @Override
     public void onItemSwipe(int position) {
+        Log.d(TAG, "OnItemSwipe position: " +position);
+        Log.d(TAG, "item count: " + getItemCount() );
         locationList.remove(position);
         notifyItemRemoved(position);
+        Log.d(TAG, "item count: " + getItemCount() );
+
     }
 }
