@@ -376,15 +376,27 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         polylineCoords = (ArrayList<LatLng>) path;
         polylineBounds = bound;
 
-        PolylineOptions polylineOptions = new PolylineOptions().
+        PolylineOptions polylineOuter = new PolylineOptions().
                 jointType(JointType.ROUND).
                 endCap(new RoundCap()).
                 startCap(new RoundCap()).
-                width(15).
+                width(20).
                 color(Color.BLUE).
                 addAll(path);
-        polyline = googleMap.addPolyline(polylineOptions);
-        googleMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bound, 100));
+
+        PolylineOptions polylineInner = new PolylineOptions().
+                jointType(JointType.ROUND).
+                endCap(new RoundCap()).
+                startCap(new RoundCap()).
+                width(5).
+                color(Color.WHITE).
+                addAll(path);
+
+        polyline = googleMap.addPolyline(polylineOuter);
+        polyline = googleMap.addPolyline(polylineInner);
+
+
+        googleMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bound, 60));
 
     }
 
